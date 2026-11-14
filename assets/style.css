@@ -66,6 +66,10 @@ main.wrap { padding-top: 14px; padding-bottom: 28px; min-height: 60vh; }
 .brand-mark { width: 32px; height: 32px; flex: none; border-radius: 9px; }
 .tag { flex: none; font: 700 10px/1 var(--font); letter-spacing: .1em; text-transform: uppercase; padding: 5px 8px; border-radius: 999px; background: var(--primary-soft); color: var(--primary); }
 .top-tools { display: flex; gap: 4px; flex: none; }
+.top-tools { align-items: center; }
+.sync { display: inline-flex; align-items: center; gap: 6px; flex: none; font-size: 12px; font-weight: 650; color: var(--muted); padding: 4px 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); }
+.sync i { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--primary); animation: spin .8s linear infinite; }
+.admin .sync { font-size: 0; gap: 0; padding: 6px; } /* admin: cukup ikon putar, hemat tempat */
 
 .demo-banner { background: #f8ecc4; color: #5b4510; font-size: 12.5px; padding: 7px 14px; text-align: center; padding-top: calc(7px + var(--safe-t)); }
 .demo-banner:not([hidden]) + .topbar { padding-top: 0; }
@@ -394,3 +398,4 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none !important;
   .nav-btn { font-size: 10.5px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+.pin-input::placeholder { letter-spacing: normal; font-size: 17px; }

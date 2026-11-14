@@ -7,28 +7,56 @@
   const LATE_LIMIT = 10;
 
   let KODE = null, D = null, BY = {}, DONE = new Set(), PICK = new Set(), PENDING = new Set();
-  let SHOW_BOARD = false, SHOW_ALL_LATE = false, LOADED_AT = 0;
+  let SHOW_BOARD = false, SHOW_ALL_LATE = false, LOADED_AT = 0, LAST_JSON = '';
 
   async function boot() {
     T.demoBanner('<a class="demo-admin" href="admin.html">Coba halaman admin →</a>');
     const tok = T.getToken();
     if (!tok) return renderNoAccess(false);
+    if (KODE !== tok.kode) { D = null; PICK.clear(); }
     KODE = tok.kode;
-    if (!D) $app.innerHTML = '<div class="loading">Memuat…</div>';
+    const CKEY = 'tbf_c_' + KODE;
+    // 1) tampilkan data terakhir yang tersimpan di HP → langsung muncul tanpa menunggu
+    if (!D) {
+      const cached = T.cacheGet(CKEY);
+      if (cached) { LAST_JSON = JSON.stringify(cached); apply(cached); } else $app.innerHTML = '<div class="loading">Memuat…</div>';
+    }
+    // 2) ambil data terbaru dari server di belakang layar
+    T.syncing(true);
+    let fresh;
     try {
-      D = await T.apiGet({ action: 'init', k: KODE });
+      fresh = await T.apiGet({ action: 'init', k: KODE });
     } catch (e) {
-      if (e.message === 'LINK_TIDAK_VALID') { T.store.del('tbf_kode'); return renderNoAccess(true); }
+      T.syncing(false);
+      if (e.message === 'LINK_TIDAK_VALID') { T.cacheDel(CKEY); T.store.del('tbf_kode'); return renderNoAccess(true); }
+      if (D) return T.toast('Belum bisa terhubung. Menampilkan data terakhir.', { ms: 4000 });
       return fatal(e);
     }
+    T.syncing(false);
     T.store.set('tbf_kode', KODE);
     LOADED_AT = Date.now();
+    if (PENDING.size) return; // ada laporan yang sedang dikirim → jangan timpa tampilan
+    const json = JSON.stringify(fresh);
+    if (D && json === LAST_JSON) return; // sama persis dengan yang sudah tampil
+    LAST_JSON = json;
+    apply(fresh);
+    saveCache();
+  }
+
+  function apply(data) {
+    D = data;
     BY = T.indexSchedule(D.schedule);
     DONE = new Set(D.done);
-    PICK.clear();
+    PICK.forEach(d => { if (DONE.has(d)) PICK.delete(d); });
     document.getElementById('group-name').textContent = D.settings.namaKelompok;
     document.title = D.me.nama + ' · ' + D.settings.namaKelompok;
     render();
+  }
+
+  function saveCache() {
+    if (!D || !KODE) return;
+    const snap = Object.assign({}, D, { ok: true, done: Array.from(DONE).sort((a, b) => a - b) });
+    T.cacheSet('tbf_c_' + KODE, snap);
   }
 
   function fatal(e) {
@@ -189,14 +217,14 @@
       const r = await T.apiPost({ action: 'lapor', k: KODE, hari: days, status });
       days.forEach(d => PENDING.delete(d));
       if (!PENDING.size && r.done) DONE = new Set(r.done);
-      updateBoardSelf(); render();
+      updateBoardSelf(); render(); saveCache();
       if (isUndo) T.toast('Sudah diurungkan');
       else T.toast(status ? (days.length > 1 ? `${days.length} bacaan dilaporkan 🎉` : 'Laporan tersimpan 🎉') : 'Laporan dibatalkan',
         { action: 'Urungkan', onAction: () => lapor(days, !status, true) });
     } catch (e) {
       days.forEach(d => { PENDING.delete(d); if (before.has(d)) DONE.add(d); else DONE.delete(d); });
       updateBoardSelf(); render();
-      if (e.message === 'LINK_TIDAK_VALID') return renderNoAccess(true);
+      if (e.message === 'LINK_TIDAK_VALID') { T.cacheDel('tbf_c_' + KODE); return renderNoAccess(true); }
       T.toast('Gagal menyimpan. Cek internet lalu coba lagi.', { ms: 5000 });
     }
   }
@@ -230,7 +258,7 @@
   }
   $app.addEventListener('click', onClick);
   $bar.addEventListener('click', onClick);
-  window.addEventListener('hashchange', () => { D = null; PENDING.clear(); boot(); });
+  window.addEventListener('hashchange', () => { PENDING.clear(); boot(); });
   // kembali ke aplikasi setelah lama ditinggal → ambil data terbaru
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && D && !PENDING.size && Date.now() - LOADED_AT > 3 * 60 * 1000) boot();

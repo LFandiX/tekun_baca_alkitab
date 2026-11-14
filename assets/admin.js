@@ -30,32 +30,76 @@
   if (!VIEWS.some(v => v[0] === VIEW)) VIEW = 'rekap';
 
   /* ============ muat data ============ */
+  const DATA_KEY = 'tbf_admin_data';
+  let store2 = null;
+  try { store2 = sessionStorage; } catch (e) { /* diblokir */ }
+
   async function boot() {
     T.demoBanner('PIN admin: <b>1234</b>. <a class="demo-admin" href="index.html">← Halaman anggota</a>');
     PIN = ss.get(PIN_KEY);
-    if (PIN) load(); else renderLogin();
+    if (!PIN) return renderLogin();
+    // tampilkan data terakhir (hanya selama tab ini terbuka), lalu perbarui di belakang
+    const cached = store2 && T.cacheGet(DATA_KEY, store2);
+    if (cached) { LAST_JSON = JSON.stringify(cached); apply(cached); }
+    load();
   }
 
-  async function load() {
+  function loginError(e) {
+    const m = String(e.message || '');
+    if (m === 'PIN_ADMIN_SALAH') return 'PIN admin salah.';
+    if (m === 'PIN_LEMAH') return 'PIN admin di Google Sheet masih bawaan atau kurang dari 8 karakter. Ganti dulu di sheet Pengaturan (kolom Nilai, baris PIN Admin), lalu coba lagi.';
+    if (m.indexOf('ADMIN_TERKUNCI') === 0) return `Terlalu banyak PIN salah. Login admin dikunci, coba lagi dalam ${m.split(':')[1] || 15} menit. (Pemilik Sheet bisa membuka kunci lewat menu 📖 Tekun Baca → Buka kunci login admin.)`;
+    return null;
+  }
+
+  async function load(fresh) {
     if (!D) $app.innerHTML = '<div class="loading">Memuat data…</div>';
+    T.syncing(true);
+    let data;
     try {
-      D = await T.apiGet({ action: 'admin', pin: PIN });
+      data = await T.apiPost({ action: 'admin', pin: PIN, fresh: !!fresh });
     } catch (e) {
-      if (e.message === 'PIN_ADMIN_SALAH') { ss.del(PIN_KEY); PIN = null; D = null; return renderLogin('PIN admin salah.'); }
+      T.syncing(false);
+      const msg = loginError(e);
+      if (msg) { ss.del(PIN_KEY); if (store2) T.cacheDel(DATA_KEY, store2); PIN = null; D = null; return renderLogin(msg); }
+      if (D) return T.toast('Belum bisa terhubung. Menampilkan data terakhir.', { ms: 4000 });
       $app.innerHTML = `<section class="card center-card"><div class="big-icon">⚠️</div><h2>Gagal memuat</h2>
         <p class="muted">${T.esc(e.message)}</p><button class="btn-primary btn-wide" data-act="reload">Coba lagi</button></section>`;
       return;
     }
+    T.syncing(false);
     ss.set(PIN_KEY, PIN);
+    if (PENDING.size || SAVING_EMO) return; // ada perubahan yang sedang disimpan → jangan timpa
+    const json = JSON.stringify(data);
+    if (D && json === LAST_JSON) { if (fresh) T.toast('Data sudah yang terbaru'); return; } // tidak ada yang berubah
+    LAST_JSON = json;
+    apply(data);
+    if (fresh) T.toast('Data terbaru dimuat');
+  }
+
+  function saveCache() {
+    if (!D || !store2) return;
+    const progress = {};
+    D.members.forEach(m => { progress[m.nama] = Array.from(P[m.nama] || []).sort((a, b) => a - b); });
+    T.cacheSet(DATA_KEY, Object.assign({}, D, { progress }), store2);
+  }
+
+  let LAST_JSON = '';
+  function apply(data) {
+    const keepModal = MODAL_NAMA;
+    const emoDirty = D && EMO && EMO_KEYS.some(([k]) => EMO[k] !== D.settings[k]);
+    D = data;
     BY = T.indexSchedule(D.schedule);
     P = {};
     D.members.forEach(m => { P[m.nama] = new Set(D.progress[m.nama] || []); });
-    EMO = pickEmo(D.settings);
+    if (!emoDirty) EMO = pickEmo(D.settings);
     document.getElementById('group-name').textContent = D.settings.namaKelompok;
     document.title = 'Admin · ' + D.settings.namaKelompok;
     if (!SEL || SEL > D.currentDay) SEL = D.currentDay;
     $tools.hidden = false;
     renderAll();
+    if (MODAL && keepModal && P[keepModal]) MODAL.setHtml(personHtml(keepModal));
+    if (store2) T.cacheSet(DATA_KEY, D, store2);
   }
 
   const pickEmo = s => ({ emojiJudul: s.emojiJudul, emojiSudah: s.emojiSudah, emojiBelum: s.emojiBelum });
@@ -65,10 +109,10 @@
     document.body.classList.remove('has-nav');
     $app.innerHTML = `<section class="card login">
       <div class="big-icon">🔐</div><h2>Masuk sebagai admin</h2>
-      <form id="login"><input class="input pin-input" type="password" inputmode="numeric" placeholder="PIN" autocomplete="current-password" required aria-label="PIN admin">
+      <form id="login"><input class="input pin-input" type="password" placeholder="PIN admin" autocomplete="current-password" autocapitalize="off" spellcheck="false" required aria-label="PIN admin">
         ${err ? `<p class="err">${T.esc(err)}</p>` : ''}
         <button class="btn-primary btn-big" type="submit">Masuk</button></form>
-      <p class="muted small">PIN diatur di sheet <b>Pengaturan</b> pada Google Sheet.</p></section>`;
+      <p class="muted small">PIN diatur di sheet <b>Pengaturan</b> pada Google Sheet (minimal 8 karakter).</p></section>`;
     const f = document.getElementById('login');
     f.querySelector('input').focus();
     f.addEventListener('submit', e => { e.preventDefault(); PIN = f.querySelector('input').value.trim(); load(); });
@@ -301,7 +345,7 @@
     SAVING_EMO = true; syncEmoUI(true);
     try {
       const r = await T.apiPost(Object.assign({ action: 'simpanEmoji', pin: PIN }, EMO));
-      D.settings = r.settings; EMO = pickEmo(r.settings);
+      D.settings = r.settings; EMO = pickEmo(r.settings); saveCache();
       T.toast('Emoji disimpan 🎉 Rekap sudah memakai emoji baru');
     } catch (e) { T.toast('Gagal menyimpan: ' + e.message, { ms: 5000 }); }
     SAVING_EMO = false; syncEmoUI();
@@ -367,9 +411,10 @@
     try {
       await T.apiPost({ action: 'adminLapor', pin: PIN, nama, hari: days, status });
       if (status) D.terakhir[nama] = new Date().toISOString();
+      saveCache();
     } catch (e) {
       days.forEach(d => { if (status) P[nama].delete(d); else P[nama].add(d); });
-      T.toast(`Gagal menyimpan ${nama}: ${e.message}`, { ms: 5000 });
+      T.toast(loginError(e) || `Gagal menyimpan ${nama}. Cek internet lalu coba lagi.`, { ms: 6000 });
     }
     days.forEach(d => PENDING.delete(nama + '|' + d));
     refresh();
@@ -379,7 +424,7 @@
   async function resetKode(nama) {
     try {
       const r = await T.apiPost({ action: 'resetKode', pin: PIN, nama });
-      D.members.find(m => m.nama === nama).kode = r.kode;
+      D.members.find(m => m.nama === nama).kode = r.kode; saveCache();
       if (MODAL) MODAL.setHtml(personHtml(nama));
       if (VIEW === 'atur') renderView();
       T.toast('Link baru dibuat. Kirim ulang ke ' + nama);
@@ -440,8 +485,12 @@
     else if (t.dataset && t.dataset.ef) { EMO[t.dataset.ef] = t.value; syncEmoUI(true); }
   });
   document.addEventListener('change', e => { if (e.target.id === 'psort') { SORT = e.target.value; renderPBody(); } });
-  document.getElementById('btn-refresh').addEventListener('click', () => { load(); T.toast('Data dimuat ulang'); });
-  document.getElementById('btn-logout').addEventListener('click', () => { ss.del(PIN_KEY); PIN = null; D = null; renderLogin(); });
+  document.getElementById('btn-refresh').addEventListener('click', () => load(true));
+  document.getElementById('btn-logout').addEventListener('click', () => {
+    ss.del(PIN_KEY); if (store2) T.cacheDel(DATA_KEY, store2); PIN = null; D = null;
+    if (MODAL) MODAL.close();
+    renderLogin();
+  });
 
   boot();
 })();

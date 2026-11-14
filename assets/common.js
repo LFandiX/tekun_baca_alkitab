@@ -86,18 +86,41 @@
     if (!j.ok) throw new Error(j.error || 'Gagal');
     return j;
   }
+  // Error sementara (server sibuk, antrean penuh, sinyal putus) → dicoba ulang otomatis.
+  // Aman diulang karena setiap laporan bersifat "set sudah/belum", bukan "tambah".
+  const RETRY_RE = /too many|simultan|invoked|lock|timeout|timed out|busy|sibuk|Server error (5\d\d|429)|Failed to fetch|NetworkError|Load failed|network/i;
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  async function withRetry(fn) {
+    const waits = [1200, 2600];
+    for (let i = 0; ; i++) {
+      try { return await fn(); } catch (e) {
+        if (i >= waits.length || !RETRY_RE.test(String(e && e.message))) throw e;
+        await sleep(waits[i] + Math.random() * 400);
+      }
+    }
+  }
   async function apiGet(params) {
-    if (IS_DEMO) return Demo.get(params);
-    return readJson(await fetch(API_URL + '?' + new URLSearchParams(params).toString()));
+    if (IS_DEMO) return withRetry(() => Demo.get(params));
+    return withRetry(async () => readJson(await fetch(API_URL + '?' + new URLSearchParams(params).toString())));
   }
   async function apiPost(body) {
-    if (IS_DEMO) return Demo.post(body);
-    return readJson(await fetch(API_URL, {
+    if (IS_DEMO) return withRetry(() => Demo.post(body));
+    return withRetry(async () => readJson(await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // text/plain = tanpa preflight CORS
       body: JSON.stringify(body),
-    }));
+    })));
   }
+
+  /* ---------- simpan data terakhir di HP (tampil instan saat dibuka) ---------- */
+  function cacheGet(key, storage) {
+    try { const j = JSON.parse((storage || localStorage).getItem(key) || 'null'); return j && j.v === 3 ? j.d : null; } catch (e) { return null; }
+  }
+  function cacheSet(key, data, storage) {
+    try { (storage || localStorage).setItem(key, JSON.stringify({ v: 3, t: Date.now(), d: data })); } catch (e) { /* penuh / diblokir */ }
+  }
+  function cacheDel(key, storage) { try { (storage || localStorage).removeItem(key); } catch (e) { /* abaikan */ } }
+  function syncing(on) { const el = document.getElementById('sync'); if (el) el.hidden = !on; }
 
   /* ---------- UI kecil ---------- */
   let toastTimer;
@@ -288,8 +311,12 @@
             board: NAMES.map(n => { const s = dm[n] || new Set(); return { nama: n, belum: firstUnread(s, c), tertinggal: countUnread(s, c) }; }),
           });
         }
-        if (p.action === 'admin') {
-          checkPin(p.pin);
+        if (p.action === 'admin') throw new Error('PERBARUI_WEB');
+        throw new Error('Aksi tidak dikenal');
+      },
+      adminData() {
+        const today = todayStr(); const c = curDay(today);
+        {
           const dm = doneMap(); const out = {
             ok: true, settings: settings(), members: NAMES.map(n => ({ nama: n, kode: load().kode[n] })),
             schedule: SCHEDULE.filter(s => s.hari <= Math.max(c, 1)), today, currentDay: c, progress: {}, terakhir: {},
@@ -301,10 +328,10 @@
           });
           return clone(out);
         }
-        throw new Error('Aksi tidak dikenal');
       },
       async post(b) {
         await wait();
+        if (b.action === 'admin') { checkPin(b.pin); return this.adminData(); }
         if (b.action === 'lapor') {
           const me = byKode(b.k); if (!me) throw new Error('LINK_TIDAK_VALID');
           return { ok: true, done: write(me, b.hari, b.status !== false) };
@@ -317,6 +344,7 @@
         if (b.action === 'simpanEmoji') {
           ['emojiJudul', 'emojiSudah', 'emojiBelum'].forEach(k => {
             if (!String(b[k] || '').trim()) throw new Error('Emoji tidak boleh kosong');
+          if (/^[=+\-@]/.test(String(b[k]).trim())) throw new Error('Emoji tidak boleh diawali = + - @');
           });
           load().emoji = { emojiJudul: b.emojiJudul.trim(), emojiSudah: b.emojiSudah.trim(), emojiBelum: b.emojiBelum.trim() };
           save();
@@ -335,7 +363,7 @@
   window.TBF = {
     IS_DEMO, store, esc, getToken, personalLink, todayStr, fmtTanggal, fmtShort, relTime,
     indexSchedule, firstUnread, countUnread, countDone, pasalDone, buildRecap,
-    apiGet, apiPost, toast, openModal, copyText, haptic, demoBanner,
+    apiGet, apiPost, cacheGet, cacheSet, cacheDel, syncing, toast, openModal, copyText, haptic, demoBanner,
     EMOJI_SUDAH, EMOJI_BELUM, demo: Demo,
   };
 })();

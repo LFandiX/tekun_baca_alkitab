@@ -3,6 +3,8 @@
 Web lapor progres baca Alkitab bersama, dibuat untuk dipakai di HP.
 **Gratis**: tampilan di GitHub Pages, data di Google Sheets.
 
+> **Sudah memakai versi sebelumnya?** Lihat bagian [Update ke versi 3](#update-ke-versi-3) di bawah.
+
 - **Anggota** membuka **link pribadinya sendiri** (berisi kode rahasia), lalu tekan **"Sudah saya baca"**. Tidak ada daftar nama untuk dipilih, jadi orang lain tidak bisa iseng melapor atas nama orang lain.
 - **Admin** buka `admin.html` (pakai PIN) dan dapat 4 menu:
   - **Rekap**: teks rekap WA siap salin, format sama seperti di grup.
@@ -35,10 +37,11 @@ Google Sheets            (sheet: Pengaturan, Anggota, Jadwal, Laporan)
 
 | Sheet | Isi | Yang perlu Anda lakukan |
 |---|---|---|
-| **Pengaturan** | Nama kelompok, PIN admin, jadwal, emoji | **Ganti `PIN Admin`!** Cek tanggal mulai & hari libur |
+| **Pengaturan** | Nama kelompok, PIN admin, jadwal, emoji | **Ganti `PIN Admin`** (minimal 8 karakter, mis. `kejadian-tekun-27`). Selama belum diganti, halaman admin tidak bisa dibuka |
 | **Anggota** | Nama, Kode Link (otomatis), Aktif | Lengkapi nama anggota. Kolom Kode Link **jangan diisi manual** |
 | **Jadwal** | Hari ke, tanggal, bacaan | Dibuat otomatis, cek apakah sudah sesuai |
-| **Laporan** | Terisi otomatis saat ada yang lapor | Jangan diubah manual kecuali perlu |
+| **Laporan** | Catatan riwayat setiap laporan (`baca` / `batal`), hanya ditambah | Jangan diubah manual kecuali perlu |
+| **Ringkasan** | 1 baris per anggota: bacaan yang sudah selesai (mis. `1-15,17-18`) | Dibuat otomatis. Kalau ragu, menu **📖 Tekun Baca → Hitung ulang Ringkasan** |
 
 > **Jadwal bawaan:** mulai **Senin, 26 Okt 2026**, **2 pasal/hari**, **Minggu libur**, dari Kejadian sampai Wahyu.
 > Hasilnya Kamis 12 Nov = Kejadian 31-32 (sesuai grup). Jika aturan grup berbeda, ubah di sheet **Pengaturan**,
@@ -97,7 +100,38 @@ Google Sheets            (sheet: Pengaturan, Anggota, Jadwal, Laporan)
 
 ---
 
+## Update ke versi 3
+
+Versi 3 menambah **keamanan** (PIN admin minimal 8 karakter, kunci otomatis setelah 5x PIN salah, link lebih acak),
+**kecepatan** (web langsung tampil dari data terakhir di HP, cache server, sheet Ringkasan) dan **coba ulang otomatis**
+saat server sibuk. Semua data lama dan link anggota yang sudah dibagikan **tetap berlaku**.
+
+**Urutannya penting: Google Sheet dulu, baru GitHub.**
+
+1. **Ganti PIN admin** (kalau masih pendek): Google Sheet → sheet **Pengaturan** → baris *PIN Admin* → isi minimal 8 karakter.
+2. **Ganti kode Apps Script**: Extensions → Apps Script → buka `Code.gs` → pilih semua (Ctrl+A) → hapus →
+   tempel isi `apps-script/Code.gs` versi 3 → 💾 Save.
+3. **Jalankan `setupAwal`** (pilih di toolbar → ▶ Run). Ini aman: tidak menghapus data. Ia membuat sheet **Ringkasan**
+   dan menambah kolom **Aksi** di sheet Laporan. Kalau Google meminta izin lagi, izinkan.
+4. **Deploy versi baru**: Deploy → **Manage deployments** → ✏️ (Edit) → *Version*: **New version** → **Deploy**.
+   URL tetap sama, jadi `config.js` **tidak perlu diubah**.
+5. **Update website di GitHub**: buka repo → **Add file → Upload files** → seret `index.html`, `admin.html`, dan folder `assets`
+   dari paket update → **Commit changes**. **Jangan** upload/ganti `config.js` (isinya URL milik Anda).
+6. Tunggu 2–10 menit (GitHub Pages butuh waktu memperbarui), lalu buka halaman admin dan masuk dengan PIN baru.
+   Kalau masih tampilan lama, tutup tab lalu buka lagi.
+
+---
+
 ## Pertanyaan umum
+
+**Login admin "dikunci"?**
+Setelah 5x PIN salah, login admin dikunci 15 menit (pencegahan tebak-tebakan PIN). Halaman anggota tidak terpengaruh.
+Pemilik Sheet bisa membukanya langsung: menu **📖 Tekun Baca → Buka kunci login admin**.
+
+**Data di Sheet saya ubah manual, kok web belum berubah?**
+Edit sel biasa langsung terbaca. Tapi menghapus/menyisipkan baris tidak terdeteksi otomatis; tunggu maks. 10 menit atau
+tekan tombol ⟳ di halaman admin. Kalau Anda mengubah sheet Laporan, jalankan **📖 Tekun Baca → Hitung ulang Ringkasan**.
+
 
 **Menambah anggota?**
 Tambah baris nama di sheet **Anggota**. Kode link dibuat otomatis begitu halaman admin dimuat ulang
