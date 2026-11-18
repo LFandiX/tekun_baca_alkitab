@@ -255,12 +255,26 @@
       <p class="muted menu-note">Akun hanya tersimpan di HP ini. Hapus dari daftar tidak menghapus data bacaan.</p>`;
   }
 
-  function renderMenu() {
+  /** Atur posisi menu saja (dipanggil saat ukuran layar berubah, mis. keyboard HP muncul).
+   *  PENTING: jangan gambar ulang isi menu di sini — itu menutup keyboard dan membuatnya berkedip. */
+  function positionMenu() {
     if (!MENU) return;
     const r = $acct.getBoundingClientRect();
     MENU.panel.style.top = Math.round(r.bottom + 8) + 'px';
+  }
+
+  /** Gambar ulang isi menu. Isian kotak kode & fokusnya dipertahankan. */
+  function renderMenu(opts) {
+    if (!MENU) return;
+    opts = opts || {};
+    const oldInp = MENU.panel.querySelector('input');
+    const keep = oldInp ? { value: oldInp.value, focused: document.activeElement === oldInp } : null;
+    positionMenu();
     MENU.panel.innerHTML = menuHtml();
-    if (MENU_ADD) { const inp = MENU.panel.querySelector('input'); if (inp) setTimeout(() => inp.focus(), 30); }
+    const inp = MENU.panel.querySelector('input');
+    if (!inp) return;
+    if (keep) inp.value = keep.value;
+    if (opts.focus || (keep && keep.focused)) inp.focus({ preventScroll: true });
   }
 
   function openMenu() {
@@ -273,7 +287,7 @@
     panel.addEventListener('click', onClick);
     panel.addEventListener('submit', onSubmit);
     $acct.setAttribute('aria-expanded', 'true');
-    renderMenu();
+    renderMenu({ focus: MENU_ADD });
   }
   function closeMenu() {
     if (!MENU) return;
@@ -585,7 +599,7 @@
       case 'wa-mark': return lapor(Array.from(WA_SEL).filter(d => !DONE.has(d)), true);
       case 'wa-more': WA_MORE = !WA_MORE; return rerenderWa();
       case 'wa-reset': WA_SEL = new Set([D.currentDay]); return rerenderWa();
-      case 'add-open': MENU_ADD = true; MENU_DEL = null; return renderMenu();
+      case 'add-open': MENU_ADD = true; MENU_DEL = null; return renderMenu({ focus: true });
       case 'add-cancel': MENU_ADD = false; return renderMenu();
     }
   }
@@ -608,7 +622,7 @@
   $bar.addEventListener('click', onClick);
   $acct.addEventListener('click', openMenu);
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
-  window.addEventListener('resize', () => { if (MENU) renderMenu(); });
+  window.addEventListener('resize', positionMenu);
   window.addEventListener('hashchange', () => { closeMenu(); boot(); });
   // kembali ke aplikasi setelah lama ditinggal → ambil data terbaru
   document.addEventListener('visibilitychange', () => {
