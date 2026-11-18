@@ -11,6 +11,7 @@
   const LATE_LIMIT = 10;
   const WA_DAYS = 14;         // jumlah bacaan terakhir yang bisa dipilih untuk dikirim ke WA
   const ACC_KEY = 'tbf_akun';
+  const APP_VERSI = '4.3';
 
   let KODE = null, D = null, BY = {}, DONE = new Set(), PICK = new Set(), PENDING = new Set();
   let SHOW_BOARD = false, SHOW_ALL_LATE = false, LOADED_AT = 0, LAST_JSON = '';
@@ -252,7 +253,8 @@
         ? `<div class="menu-add"><p class="small"><b>Tambah akun</b>: tempel link pribadi atau ketik kodenya.</p>${addFormHtml('add-menu')}
             <button class="link-btn" type="button" data-act="add-cancel">Batal</button></div>`
         : `<button class="menu-add-btn" data-act="add-open"><span class="plus" aria-hidden="true">+</span>Tambah akun</button>`}
-      <p class="muted menu-note">Akun hanya tersimpan di HP ini. Hapus dari daftar tidak menghapus data bacaan.</p>`;
+      <p class="muted menu-note">Akun hanya tersimpan di HP ini. Hapus dari daftar tidak menghapus data bacaan.
+        <span class="ver">Versi ${APP_VERSI}</span></p>`;
   }
 
   /** Atur posisi menu saja (dipanggil saat ukuran layar berubah, mis. keyboard HP muncul).

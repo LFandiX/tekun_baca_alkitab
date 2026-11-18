@@ -500,3 +500,4 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none !important;
 .seg-mini { margin: 0; padding: 3px; gap: 2px; }
 .seg-mini .seg-btn { flex: none; min-width: 48px; min-height: 36px; font-size: 18px; }
 .wa-opts .link-btn { margin-left: auto; min-height: 36px; padding: 0; }
+.menu-note .ver { display: block; margin-top: 4px; opacity: .7; }
