@@ -194,7 +194,7 @@
           <button class="chip-btn" data-view="atur">${T.esc(s.emojiJudul)} ${T.esc(s.emojiSudah)} ${T.esc(s.emojiBelum)} · Ubah</button></div>
         <div class="row-btns mb">
           <button class="btn-primary" data-act="copy-recap">Salin teks</button>
-          <a class="btn-wa" id="wa-link" href="#" target="_blank" rel="noopener">Kirim ke WA</a>
+          <a class="btn-wa" id="wa-link" href="#" target="${T.waTarget}" rel="noopener">Kirim ke WA</a>
         </div>
         <textarea class="recap-text" id="recap" rows="12" aria-label="Teks rekap">${T.esc(recap)}</textarea>
         <p class="muted small">Teks boleh diedit dulu sebelum disalin.</p>
@@ -202,7 +202,7 @@
   }
   function bindRekap() {
     const ta = document.getElementById('recap'); const wa = document.getElementById('wa-link');
-    const upd = () => { wa.href = 'https://wa.me/?text=' + encodeURIComponent(ta.value); };
+    const upd = () => { wa.href = T.waUrl(ta.value); };
     ta.addEventListener('input', upd); upd();
   }
 
@@ -312,7 +312,7 @@
         <div class="linklist">${D.members.map(m => `<div class="lrow">
             <button class="lrow-name" data-person="${T.esc(m.nama)}">${T.esc(m.nama)}</button>
             <button class="chip-btn" data-copy="${T.esc(m.nama)}">Salin</button>
-            <a class="chip-btn wa" href="${waLinkFor(m)}" target="_blank" rel="noopener">WA</a></div>`).join('')}</div>
+            <a class="chip-btn wa" href="${waLinkFor(m)}" target="${T.waTarget}" rel="noopener">WA</a></div>`).join('')}</div>
       </section>
       <section class="card">
         <h3>Pengaturan lain</h3>
@@ -323,7 +323,7 @@
   function waLinkFor(m) {
     const text = `Shalom ${m.nama} 🙏\nIni link pribadi untuk lapor baca Alkitab ${D.settings.namaKelompok}.\n` +
       `Simpan baik-baik dan jangan dibagikan ya:\n${T.personalLink(m.kode)}`;
-    return 'https://wa.me/?text=' + encodeURIComponent(text);
+    return T.waUrl(text);
   }
   function syncEmoUI(skipInputs) {
     if (!document.getElementById('epreview')) return;
@@ -381,7 +381,7 @@
       <input class="input mono" readonly value="${T.esc(link)}" aria-label="Link pribadi" onclick="this.select()">
       <div class="row-btns mt-s">
         <button class="btn-secondary" data-copy="${T.esc(nama)}">Salin link</button>
-        <a class="btn-wa" href="${waLinkFor(m)}" target="_blank" rel="noopener">Kirim via WA</a>
+        <a class="btn-wa" href="${waLinkFor(m)}" target="${T.waTarget}" rel="noopener">Kirim via WA</a>
       </div>
       ${T.IS_DEMO ? `<a class="btn-ghost btn-wide" href="${T.esc(link)}">Demo: buka sebagai ${T.esc(nama)} →</a>` : ''}
       <button class="link-btn danger ${cReset ? 'confirm' : ''}" data-act="reset-kode">${cReset

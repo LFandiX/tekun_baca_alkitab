@@ -3,7 +3,7 @@
 Web lapor progres baca Alkitab bersama, dibuat untuk dipakai di HP.
 **Gratis**: tampilan di GitHub Pages, data di Google Sheets.
 
-> **Sudah memakai versi sebelumnya?** Lihat bagian [Update ke versi 3](#update-ke-versi-3) di bawah.
+> **Sudah memakai versi sebelumnya?** Lihat bagian [Update ke versi 4](#update-ke-versi-4) dan [Update ke versi 3](#update-ke-versi-3) di bawah.
 
 - **Anggota** membuka **link pribadinya sendiri** (berisi kode rahasia), lalu tekan **"Sudah saya baca"**. Tidak ada daftar nama untuk dipilih, jadi orang lain tidak bisa iseng melapor atas nama orang lain.
 - **Admin** buka `admin.html` (pakai PIN) dan dapat 4 menu:
@@ -97,6 +97,23 @@ Google Sheets            (sheet: Pengaturan, Anggota, Jadwal, Laporan)
 - **Ada yang lapor lewat chat?** Menu **Checklist** → ketuk lingkaran di samping namanya.
   Untuk bacaan hari lain, ketuk namanya → centang di daftar bacaan, atau **Tandai semua sudah sampai hari ini**.
 - **Mau suasana baru?** Menu **Emoji & Link** → pilih emoji / 🎲 Acak → **Simpan emoji**.
+
+---
+
+## Update ke versi 4
+
+Versi 4 hanya mengubah **halaman anggota** (tidak ada perubahan Google Sheet / Apps Script):
+- **Kirim ke grup WA** (kartu paling bawah): bacaan hari ini langsung siap, tinggal **Kirim ke WA** atau **Salin**.
+  Tombol **Pilih lain** untuk mengirim bacaan yang tertinggal; pasal yang menyambung digabung (`Kejadian 29-34 ✅`),
+  yang tidak menyambung jadi baris baru. Tanda bisa ✅ atau ✓.
+- **Beberapa akun di satu HP**: tombol bulat di kanan atas → daftar akun → pindah akun / **Tambah akun** dengan
+  menempel link pribadi atau mengetik kodenya. Saat data sedang diperbarui, muncul cincin berputar di tombol itu.
+
+Langkah:
+1. Pastikan Apps Script sudah **versi 3** (kalau belum, kerjakan dulu langkah 1–4 di bagian *Update ke versi 3*).
+2. Di GitHub: **Add file → Upload files** → seret `index.html`, `admin.html`, dan folder `assets` → **Commit changes**.
+   Jangan ganti `config.js`.
+3. Tunggu 2–10 menit, lalu buka link pribadi Anda. Kalau masih tampilan lama, tutup tab lalu buka lagi.
 
 ---
 

@@ -1,11 +1,10 @@
-PAKET UPDATE VERSI 3: Tekun Baca Firman
-========================================
-Isi paket ini:
-  apps-script/Code.gs  -> tempel di Apps Script (Google Sheet)
-  index.html, admin.html, folder assets/  -> upload ke repo GitHub
-  README.md  -> panduan lengkap (bagian "Update ke versi 3")
+PAKET UPDATE VERSI 4.1: Tekun Baca Firman
+==========================================
+Upload ke GitHub (menimpa file lama):
+  index.html
+  admin.html
+  folder assets/   (app.js, common.js, admin.js, style.css, ikon)
 
-PENTING:
-  - config.js SENGAJA tidak disertakan. Jangan ganti config.js di GitHub,
-    karena isinya URL Apps Script milik Anda.
-  - Urutan: Google Sheet + Apps Script dulu, baru GitHub.
+TIDAK perlu diubah:
+  config.js           -> JANGAN ditimpa (isinya URL Apps Script Anda)
+  apps-script/Code.gs -> sama dengan versi 3

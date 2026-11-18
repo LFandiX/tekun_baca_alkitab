@@ -120,7 +120,12 @@
     try { (storage || localStorage).setItem(key, JSON.stringify({ v: 3, t: Date.now(), d: data })); } catch (e) { /* penuh / diblokir */ }
   }
   function cacheDel(key, storage) { try { (storage || localStorage).removeItem(key); } catch (e) { /* abaikan */ } }
-  function syncing(on) { const el = document.getElementById('sync'); if (el) el.hidden = !on; }
+  function syncing(on) {
+    const el = document.getElementById('sync'); if (el) el.hidden = !on;
+    // halaman anggota: cincin berputar di tombol akun (tidak memakan tempat)
+    const ab = document.getElementById('acct-btn');
+    if (ab) { ab.classList.toggle('is-syncing', !!on); ab.title = on ? 'Memperbarui data…' : ''; }
+  }
 
   /* ---------- UI kecil ---------- */
   let toastTimer;
@@ -165,6 +170,16 @@
       ta.remove(); return ok;
     }
   }
+
+  /* ---------- link WhatsApp ----------
+   * Di HP langsung buka aplikasi WhatsApp (whatsapp://). Link wa.me melewati
+   * halaman pengalihan yang di sebagian HP merusak emoji jadi "�".            */
+  const IS_MOBILE = /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+  function waUrl(text) {
+    const enc = encodeURIComponent(String(text || '').normalize('NFC'));
+    return IS_MOBILE ? 'whatsapp://send?text=' + enc : 'https://wa.me/?text=' + enc;
+  }
+  const waTarget = IS_MOBILE ? '_self' : '_blank';
 
   function haptic(ms) { try { if (navigator.vibrate) navigator.vibrate(ms || 12); } catch (e) { /* abaikan */ } }
 
@@ -363,7 +378,7 @@
   window.TBF = {
     IS_DEMO, store, esc, getToken, personalLink, todayStr, fmtTanggal, fmtShort, relTime,
     indexSchedule, firstUnread, countUnread, countDone, pasalDone, buildRecap,
-    apiGet, apiPost, cacheGet, cacheSet, cacheDel, syncing, toast, openModal, copyText, haptic, demoBanner,
+    waUrl, waTarget, apiGet, apiPost, cacheGet, cacheSet, cacheDel, syncing, toast, openModal, copyText, haptic, demoBanner,
     EMOJI_SUDAH, EMOJI_BELUM, demo: Demo,
   };
 })();
