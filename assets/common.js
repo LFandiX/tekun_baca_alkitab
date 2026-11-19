@@ -308,7 +308,7 @@
       save();
       return sorted(doneMap()[nama]);
     }
-    const wait = () => new Promise(r => setTimeout(r, 350 + Math.random() * 450));
+    const wait = () => new Promise(r => setTimeout(r, (window.__tbfDemoDelay || 0) + 350 + Math.random() * 450));
     const clone = o => JSON.parse(JSON.stringify(o));
 
     return {

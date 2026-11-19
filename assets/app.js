@@ -11,7 +11,7 @@
   const LATE_LIMIT = 10;
   const WA_DAYS = 14;         // jumlah bacaan terakhir yang bisa dipilih untuk dikirim ke WA
   const ACC_KEY = 'tbf_akun';
-  const APP_VERSI = '4.3';
+  const APP_VERSI = '4.4';
 
   let KODE = null, D = null, BY = {}, DONE = new Set(), PICK = new Set(), PENDING = new Set();
   let SHOW_BOARD = false, SHOW_ALL_LATE = false, LOADED_AT = 0, LAST_JSON = '';
@@ -75,7 +75,10 @@
     // 1) tampilkan data terakhir yang tersimpan di HP → langsung muncul tanpa menunggu
     if (!D) {
       const cached = T.cacheGet(CKEY);
-      if (cached) { LAST_JSON = JSON.stringify(cached); apply(cached); } else $app.innerHTML = '<div class="loading">Memuat…</div>';
+      if (cached) { LAST_JSON = JSON.stringify(cached); apply(advanceDay(cached)); } else $app.innerHTML = '<div class="loading">Memuat…</div>';
+    } else if (D.today !== T.todayStr()) {
+      // halaman dibiarkan terbuka sampai hari berganti → langsung geser ke hari ini
+      apply(advanceDay(D));
     }
     // 2) ambil data terbaru dari server di belakang layar
     T.syncing(true);
@@ -95,12 +98,43 @@
     upsertAccount(KODE, fresh.me.nama);
     renderAcct();
     LOADED_AT = Date.now();
-    if (PENDING.size) return; // ada laporan yang sedang dikirim → jangan timpa tampilan
     const json = JSON.stringify(fresh);
-    if (D && json === LAST_JSON) return; // sama persis dengan yang sudah tampil
+    if (D && !D._stale && !PENDING.size && json === LAST_JSON) return; // sama persis dengan yang sudah tampil
     LAST_JSON = json;
+    // laporan yang masih dikirim tetap mengikuti tampilan di HP, sisanya pakai data server
+    const localDone = new Set(DONE), pend = new Set(PENDING);
     apply(fresh);
+    if (pend.size) {
+      pend.forEach(d => { if (localDone.has(d)) DONE.add(d); else DONE.delete(d); });
+      updateBoardSelf(); render();
+    }
     saveCache();
+  }
+
+  /**
+   * Data di HP bisa saja data kemarin. Hitung sendiri "bacaan hari ini" dari jadwal yang ikut
+   * tersimpan (berisi s/d 7 hari ke depan), supaya halaman langsung benar tanpa menunggu server.
+   * Status teman-teman ikut disesuaikan (dianggap belum lapor) sampai data server masuk.
+   */
+  function advanceDay(data) {
+    const today = T.todayStr();
+    if (!data || !data.schedule || data.today === today || data.today > today) return data;
+    const sched = data.schedule;
+    if (!sched.some(s => s.tanggal > today)) return data;   // jadwal tersimpan tidak cukup jauh → tunggu server
+    let cur = 0;
+    sched.forEach(s => { if (s.tanggal <= today && s.hari > cur) cur = s.hari; });
+    const oldCur = data.currentDay || 0;
+    const out = Object.assign({}, data, { today, currentDay: Math.max(cur, oldCur), _stale: true });
+    const diff = out.currentDay - oldCur;
+    if (diff > 0) {
+      out.board = (data.board || []).map(b => ({
+        nama: b.nama,
+        belum: b.belum || oldCur + 1,
+        tertinggal: (b.tertinggal || 0) + diff,
+      }));
+      if (WA_SEL && WA_SEL.size === 1 && WA_SEL.has(oldCur)) WA_SEL = null; // pilihan WA ikut ke hari ini
+    }
+    return out;
   }
 
   function apply(data) {
@@ -401,7 +435,7 @@
         <span class="b-status">${x.belum ? T.esc(BY[x.belum].singkat) : 'Sudah ' + T.esc(D.settings.emojiSudah)}</span></li>`).join('')}</ul>` : '';
     return `<section class="card">
       <button class="card-head toggle" data-act="board" aria-expanded="${SHOW_BOARD}">
-        <h3>Teman-teman</h3><span class="muted small">${n}/${b.length} sudah ${T.esc(BY[cur].singkat)}</span>
+        <h3>Teman-teman</h3><span class="muted small">${D._stale ? 'memperbarui…' : `${n}/${b.length} sudah ${T.esc(BY[cur].singkat)}`}</span>
         <span class="chev" aria-hidden="true">${SHOW_BOARD ? '▴' : '▾'}</span></button>${list}</section>`;
   }
 
