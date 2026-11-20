@@ -100,6 +100,24 @@ Google Sheets            (sheet: Pengaturan, Anggota, Jadwal, Laporan)
 
 ---
 
+## Update ke versi 5.2 (jadwal tepat 2 pasal per hari)
+
+Kitab yang jumlah pasalnya ganjil dulu membuat hari 3 pasal (mis. Imamat 25-27).
+Sekarang jadwal ke depan bisa diratakan: setiap hari tepat 2 pasal, boleh menyambung
+ke kitab berikutnya (mis. **Imamat 27 & Bilangan 1**).
+
+1. Apps Script: tempel `Code.gs` baru → Save → Deploy → Manage deployments → ✏️ → New version → Deploy.
+2. GitHub: salin `index.html`, `admin.html`, `assets/app.js`, `assets/admin.js`, `assets/common.js`, `apps-script/Code.gs` → push.
+3. Buka Google Sheet, **refresh** halamannya → menu **📖 Tekun Baca → Ratakan jadwal ke depan**.
+   Akan muncul ringkasan perubahan dulu; klik **Yes** untuk menerapkan.
+
+Catatan:
+- Hari yang sudah lewat, hari ini, dan hari yang sudah ada laporannya tidak diubah.
+- Jadwal lama otomatis disimpan sebagai sheet "Cadangan Jadwal …".
+- Renungan yang sudah diupload untuk hari ke depan ikut dipindah sesuai pasalnya.
+- Total pasal Alkitab ganjil (1.189), jadi hari terakhir hanya Wahyu 22.
+- Mau kembali ke cara lama? Ubah Pengaturan "Pasal Lintas Kitab" menjadi `Tidak`.
+
 ## Update ke versi 5
 
 Versi 5 menambah **renungan harian**:

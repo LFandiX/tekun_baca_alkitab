@@ -11,7 +11,7 @@
   const LATE_LIMIT = 10;
   const WA_DAYS = 14;         // jumlah bacaan terakhir yang bisa dipilih untuk dikirim ke WA
   const ACC_KEY = 'tbf_akun';
-  const APP_VERSI = '5.0';
+  const APP_VERSI = '5.2';
   const RN_FONTS = [15, 16, 17, 18, 20, 22, 24];   // ukuran huruf layar baca
   const RN_KEEP = 40;                               // renungan yang disimpan di HP
 
@@ -663,10 +663,14 @@
     </section>`;
   }
 
-  /** "Kejadian 29-30" → { kitab: 'Kejadian', a: 29, z: 30 } */
+  /** "Kejadian 29-30" → [{ kitab: 'Kejadian', a: 29, z: 30 }]
+   *  "Imamat 27 & Bilangan 1" → [{ kitab: 'Imamat', a: 27, z: 27 }, { kitab: 'Bilangan', a: 1, z: 1 }] */
   function parseBacaan(s) {
-    const m = String(s).match(/^(.*\S)\s+(\d+)(?:\s*-\s*(\d+))?$/);
-    return m ? { kitab: m[1], a: +m[2], z: +(m[3] || m[2]) } : null;
+    const segs = String(s).split(/\s*&\s*/).map(x => {
+      const m = x.match(/^(.*\S)\s+(\d+)(?:\s*-\s*(\d+))?$/);
+      return m ? { kitab: m[1], a: +m[2], z: +(m[3] || m[2]) } : null;
+    });
+    return segs.every(Boolean) ? segs : null;
   }
 
   /** Gabung bacaan yang pasalnya menyambung: Kej 29-30 + 31-32 + 33-34 → "Kejadian 29-34".
@@ -675,13 +679,15 @@
     const groups = [];
     days.slice().sort((x, y) => x - y).forEach(d => {
       if (!BY[d]) return;
-      const p = parseBacaan(BY[d].bacaan);
-      const g = groups[groups.length - 1];
-      if (!p) { groups.push({ raw: BY[d].bacaan }); return; }
-      if (g && g.kitab === p.kitab) {
-        const last = g.ranges[g.ranges.length - 1];
-        if (p.a === last[1] + 1) last[1] = p.z; else g.ranges.push([p.a, p.z]);
-      } else groups.push({ kitab: p.kitab, ranges: [[p.a, p.z]] });
+      const segs = parseBacaan(BY[d].bacaan);
+      if (!segs) { groups.push({ raw: BY[d].bacaan }); return; }
+      segs.forEach(p => {
+        const g = groups[groups.length - 1];
+        if (g && g.kitab === p.kitab) {
+          const last = g.ranges[g.ranges.length - 1];
+          if (p.a === last[1] + 1) last[1] = p.z; else g.ranges.push([p.a, p.z]);
+        } else groups.push({ kitab: p.kitab, ranges: [[p.a, p.z]] });
+      });
     });
     // setiap rentang pasal yang tidak menyambung → baris sendiri
     const lines = [];

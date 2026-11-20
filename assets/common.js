@@ -231,7 +231,9 @@
     for (const l of lines) { const m = stripMarks(l).trim().match(GUIDE_RE); if (m && m[1]) return m[1].trim(); }
     return null;
   }
-  const rnNorm = t => String(t || '').toLowerCase().replace(/[‐-―−]/g, '-').replace(/\s*-\s*/g, '-').replace(/\s+/g, ' ').trim();
+  // "Imamat 27 – Bilangan 1" / "Imamat 27 dan Bilangan 1" / "Imamat 27 & Bilangan 1" → sama
+  const rnNorm = t => String(t || '').toLowerCase().replace(/[‐-―−]/g, '-').replace(/\s*-\s*/g, '-')
+    .replace(/(\d)\s*(?:-|&|\+|;|,|\/|\bdan\b)\s*(?=(?:[1-3]\s*)?[a-z])/g, '$1 & ').replace(/\s+/g, ' ').trim();
 
   /** buang baris tanggal & "Guidelines" di awal (sudah tampil di judul) */
   function rnBodyLines(teks) {
@@ -315,19 +317,30 @@
     ['3 Yohanes', '3Yoh', 1], ['Yudas', 'Yud', 1], ['Wahyu', 'Why', 22],
   ];
 
-  function generateSchedule(mulai, perHari, libur, kitabMulai) {
+  function generateSchedule(mulai, perHari, libur, kitabMulai, lintas) {
     const idx = KITAB.findIndex(k => k[0].toLowerCase() === kitabMulai.toLowerCase());
     const chunks = [];
-    for (let b = idx; b < KITAB.length; b++) {
-      const [nama, sgk, jml] = KITAB[b];
+    const teks = segs => {
+      const rng = ([, a, z]) => a === z ? String(a) : a + '-' + z;
+      return { bacaan: segs.map(g => KITAB[g[0]][0] + ' ' + rng(g)).join(' & '),
+        singkat: segs.map(g => KITAB[g[0]][1].toLowerCase() + ' ' + rng(g)).join(' & '),
+        pasal: segs.reduce((n, [, a, z]) => n + z - a + 1, 0) };
+    };
+    if (lintas) { // tepat perHari pasal per hari, boleh menyambung ke kitab berikutnya
+      let cur = [], n = 0;
+      for (let b = idx; b < KITAB.length; b++) for (let c = 1; c <= KITAB[b][2]; c++) {
+        const g = cur[cur.length - 1];
+        if (g && g[0] === b && g[2] === c - 1) g[2] = c; else cur.push([b, c, c]);
+        if (++n === perHari) { chunks.push(teks(cur)); cur = []; n = 0; }
+      }
+      if (cur.length) chunks.push(teks(cur));
+    } else for (let b = idx; b < KITAB.length; b++) {
+      const jml = KITAB[b][2];
       const parts = [];
       for (let c = 1; c <= jml; c += perHari) parts.push([c, Math.min(c + perHari - 1, jml)]);
       const last = parts[parts.length - 1];
       if (parts.length > 1 && last[1] - last[0] + 1 < perHari) { parts.pop(); parts[parts.length - 1][1] = jml; }
-      parts.forEach(([a, z]) => {
-        const rng = a === z ? String(a) : a + '-' + z;
-        chunks.push({ bacaan: nama + ' ' + rng, singkat: sgk.toLowerCase() + ' ' + rng, pasal: z - a + 1 });
-      });
+      parts.forEach(([a, z]) => chunks.push(teks([[b, a, z]])));
     }
     let t = parseYmd(mulai).getTime();
     return chunks.map((ch, i) => {
@@ -345,7 +358,7 @@
     const NAMES = ['Agustina', 'Ahong', 'Andang', 'Andre', 'Andy', 'Arini', 'Bryan', 'Clara', 'Dedi', 'Dedi SS',
       'Dewi H', 'Dharmawan', 'Dimas', 'Eben', 'Elfrida', 'Enjel', 'Erin', 'Erwis', 'Fandi', 'Fenny', 'Fian', 'Geta'];
     const LAG = { Andang: 3, Andre: 3, Elfrida: 3, Bryan: 2, Dedi: 2, Enjel: 2, Fandi: 2, Dimas: 6, Erin: 1, Geta: 1, Fian: 1, Ahong: 1 };
-    const SCHEDULE = generateSchedule('2026-10-26', 2, [0], 'Kejadian');
+    const SCHEDULE = generateSchedule('2026-10-26', 2, [0], 'Kejadian', true);
     const HURUF = 'abcdefghjkmnpqrstuvwxyz23456789';
     let mem = null;
 
@@ -415,9 +428,12 @@
     function contohRenungan(s) {
       const d = parseYmd(s.tanggal);
       const tgl = `${NAMA_HARI[d.getUTCDay()]}, ${d.getUTCDate()} ${BLN[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
-      const m = s.bacaan.match(/^(.*\S)\s+(\d+)(?:-(\d+))?$/);
-      const pasal = []; if (m) for (let c = +m[2]; c <= +(m[3] || m[2]); c++) pasal.push(m[1] + ' ' + c);
-      return `*${tgl}*\n*Guidelines: ${s.bacaan.replace('-', '–')}*\n\n\n` + pasal.map(p =>
+      const pasal = [];
+      s.bacaan.split(/\s*&\s*/).forEach(seg => {
+        const m = seg.match(/^(.*\S)\s+(\d+)(?:-(\d+))?$/);
+        if (m) for (let c = +m[2]; c <= +(m[3] || m[2]); c++) pasal.push(m[1] + ' ' + c);
+      });
+      return `*${tgl}*\n*Guidelines: ${s.bacaan.replace(/-/g, '–')}*\n\n\n` + pasal.map(p =>
         `*${p}*\nIni contoh renungan untuk *mode demo*. Di aplikasi asli, bagian ini berisi renungan dari pendeta untuk _${p}_.\n\n` +
         `Renungan:\n1. Apa yang Tuhan ajarkan melalui pasal ini?\n2. Bagaimana kita menerapkannya hari ini?`).join('\n\n\n') +
         `\n\n\n*Pokok Doa:*\n1. Berdoa agar kita tekun membaca Firman setiap hari.\n\n\nSelamat menikmati FirmanNya 🙏`;

@@ -1,6 +1,11 @@
-PAKET UPDATE VERSI 5.1: renungan boleh diupload s/d Wahyu
-==========================================================
-1) Apps Script: tempel apps-script/Code.gs -> Save -> Deploy -> Manage deployments -> New version
-   (tidak perlu setupAwal lagi kalau v5 sudah dipasang)
-2) GitHub (timpa): admin.html, assets/admin.js, assets/common.js, assets/style.css
-JANGAN timpa config.js. index.html & assets/app.js tidak berubah.
+UPDATE v5.2: jadwal tepat 2 pasal per hari
+
+File di paket ini:
+  index.html, admin.html, README.md
+  assets/app.js, assets/admin.js, assets/common.js
+  apps-script/Code.gs
+
+JANGAN menimpa config.js (berisi URL Apps Script Anda). config.js tidak ada di paket ini.
+
+Setelah update, buka Google Sheet, refresh, lalu pilih menu
+  📖 Tekun Baca → Ratakan jadwal ke depan (tepat 2 pasal/hari)

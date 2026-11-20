@@ -289,10 +289,12 @@
           <span class="mini-bar"><span style="width:${r.pct}%"></span></span></span>
       </button>`).join('') || '<p class="muted center">Tidak ada nama yang cocok.</p>'}</div>`;
   }
+  /** judul kolom tabel: "kej 45-46" → "45-46", "im 27 & bil 1" → "im 27+bil 1" */
+  const colLabel = sg => /&/.test(sg) ? sg.replace(/\s*&\s*/g, '+') : sg.split(' ').slice(1).join(' ');
   function matrixHtml() {
     const from = Math.max(1, SEL - 13); const days = [];
     for (let d = SEL; d >= from; d--) days.push(d); // terbaru di kiri: langsung terlihat di HP
-    const head = days.map(d => `<th class="${d === SEL ? 'sel' : ''}"><span>${T.fmtShort(BY[d].tanggal)}</span><small>${T.esc(BY[d].singkat.split(' ').slice(1).join(' '))}</small></th>`).join('');
+    const head = days.map(d => `<th class="${d === SEL ? 'sel' : ''}"><span>${T.fmtShort(BY[d].tanggal)}</span><small>${T.esc(colLabel(BY[d].singkat))}</small></th>`).join('');
     const body = D.members.map(m => `<tr><th class="m-name"><button data-person="${T.esc(m.nama)}">${T.esc(m.nama)}</button></th>${
       days.map(d => {
         const on = P[m.nama].has(d); const busy = PENDING.has(m.nama + '|' + d);
