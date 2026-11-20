@@ -1,10 +1,6 @@
-PAKET UPDATE VERSI 5 (renungan harian): Tekun Baca Firman
+PAKET UPDATE VERSI 5.1: renungan boleh diupload s/d Wahyu
 ==========================================================
-1) Google Sheet / Apps Script:
-   apps-script/Code.gs  -> tempel di Apps Script, Save, jalankan setupAwal,
-                           isi "PIN Renungan" di sheet Pengaturan,
-                           Deploy -> Manage deployments -> New version.
-2) GitHub (timpa file lama):
-   index.html, admin.html,
-   assets/app.js, assets/admin.js, assets/common.js, assets/style.css
-JANGAN timpa config.js.
+1) Apps Script: tempel apps-script/Code.gs -> Save -> Deploy -> Manage deployments -> New version
+   (tidak perlu setupAwal lagi kalau v5 sudah dipasang)
+2) GitHub (timpa): admin.html, assets/admin.js, assets/common.js, assets/style.css
+JANGAN timpa config.js. index.html & assets/app.js tidak berubah.

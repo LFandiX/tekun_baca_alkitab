@@ -479,7 +479,7 @@
         {
           const dm = doneMap(); const out = {
             ok: true, settings: settings(), members: NAMES.map(n => ({ nama: n, kode: load().kode[n] })),
-            schedule: SCHEDULE.filter(s => s.hari <= Math.max(c, 1) + 30), today, currentDay: c, progress: {}, terakhir: {},
+            schedule: SCHEDULE, today, currentDay: c, progress: {}, terakhir: {},
             role: 'admin', rnMeta: rnMeta(),
           };
           NAMES.forEach(n => {
@@ -495,7 +495,7 @@
         if (b.action === 'admin') {
           if (role(b.pin) === 'pendeta') {
             const c = curDay(todayStr());
-            return clone({ ok: true, role: 'pendeta', settings: settings(), schedule: SCHEDULE.filter(s => s.hari <= c + 30),
+            return clone({ ok: true, role: 'pendeta', settings: settings(), schedule: SCHEDULE,
               today: todayStr(), currentDay: c, rnMeta: rnMeta() });
           }
           return this.adminData();
@@ -504,7 +504,6 @@
         if (b.action === 'rnSave') {
           const who = role(b.pin); const h = +b.hari; const c = curDay(todayStr());
           if (!SCHEDULE[h - 1]) throw new Error('Hari bacaan tidak ditemukan di jadwal');
-          if (h > c + 30) throw new Error('Renungan hanya bisa diupload s/d 30 hari bacaan ke depan');
           const teks = String(b.teks || '').replace(/\r\n?/g, '\n').trim();
           if (!teks) throw new Error('Teks renungan kosong');
           rnStore()[h] = { teks, v: ver() + Math.random().toString(36).slice(2, 4), oleh: who === 'admin' ? 'Admin' : 'Pendeta', t: new Date().toISOString() };

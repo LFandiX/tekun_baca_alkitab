@@ -593,3 +593,8 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none !important;
 .rn-s-st.ok { color: var(--ok); font-size: 16px; }
 .nav-btn span { white-space: nowrap; }
 @media (max-width: 400px) { .bottomnav-in .nav-btn { font-size: 10.5px; padding-left: 0; padding-right: 0; } }
+.rn-hint .info { background: var(--surface-2); color: var(--muted); border: 1px dashed var(--line); }
+.rn-jump { display: flex; align-items: flex-end; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.rn-jump-date { flex: 1 1 170px; display: grid; gap: 4px; font-size: 12.5px; font-weight: 650; color: var(--muted); }
+.rn-jump-date .input { min-height: 44px; padding: 8px 12px; }
+.rn-jump .chip-btn { min-height: 44px; }

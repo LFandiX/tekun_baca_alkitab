@@ -107,15 +107,16 @@ Versi 5 menambah **renungan harian**:
   (A−/A+ ukuran huruf, Salin, ‹ › renungan sebelumnya, ketuk judul untuk daftar semua tanggal).
   Kalau belum diupload: "Renungan hari ini belum tersedia" + tautan ke renungan kemarin.
 - **Admin / Pendeta**: menu **Renungan**. Tempel teks dari WhatsApp apa adanya. Tanggal di baris pertama
-  dikenali otomatis, Guidelines dicek dengan jadwal, ada pratinjau. Bisa diupload s/d 30 hari ke depan;
-  renungan baru muncul di aplikasi anggota pada harinya.
+  dikenali otomatis (Guidelines jadi patokan utama; salah ketik tahun ditoleransi), ada pratinjau.
+  Bisa diupload untuk **semua hari di jadwal (s/d Wahyu)**, termasuk hari yang sudah lewat; renungan baru muncul
+  di aplikasi anggota pada harinya. Ada *Pilih tanggal* dan *Hari kosong berikutnya* untuk upload banyak sekaligus.
 - **PIN Renungan** (baris baru di sheet Pengaturan): PIN khusus pendeta yang **hanya** bisa mengelola renungan.
 
 Langkah (urutan penting: Google Sheet dulu, baru GitHub):
 1. Apps Script → ganti seluruh isi `Code.gs` dengan versi 5 → Save.
 2. Jalankan **`setupAwal`** → membuat sheet **Renungan** dan baris **PIN Renungan** di Pengaturan (data lama aman).
 3. Isi **PIN Renungan** di sheet Pengaturan (minimal 8 karakter, beda dengan PIN Admin) → berikan ke pendeta.
-4. Deploy → Manage deployments → ✏️ → *New version* → Deploy. Cek URL `/exec` menampilkan `"versi":3.2`.
+4. Deploy → Manage deployments → ✏️ → *New version* → Deploy. Cek URL `/exec` menampilkan `"versi":3.3`.
 5. GitHub: timpa `index.html`, `admin.html`, `assets/app.js`, `assets/admin.js`, `assets/common.js`, `assets/style.css` → commit → push.
    Jangan ganti `config.js`.
 6. Pendeta membuka `…/admin.html` dan masuk dengan **PIN Renungan** → hanya melihat menu Renungan.

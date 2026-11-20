@@ -85,16 +85,18 @@
 
   function saveCache() {
     if (!D || !store2) return;
+    // (jadwal disimpan versi ringkas saja)
     const progress = {};
     (D.members || []).forEach(m => { progress[m.nama] = Array.from(P[m.nama] || []).sort((a, b) => a - b); });
-    T.cacheSet(DATA_KEY, Object.assign({}, D, { progress }), store2);
+    const snap = Object.assign({}, D, { progress }); if (snap.sch) delete snap.schedule;
+    T.cacheSet(DATA_KEY, snap, store2);
   }
 
   let LAST_JSON = '';
   function apply(data) {
     const keepModal = MODAL_NAMA;
     const emoDirty = D && EMO && EMO_KEYS.some(([k]) => EMO[k] !== D.settings[k]);
-    D = data;
+    D = T.expandSch(data);
     BY = T.indexSchedule(D.schedule);
     P = {};
     (D.members || []).forEach(m => { P[m.nama] = new Set(D.progress[m.nama] || []); });
@@ -110,7 +112,7 @@
     $tools.hidden = false;
     renderAll();
     if (MODAL && keepModal && P[keepModal]) MODAL.setHtml(personHtml(keepModal));
-    if (store2) T.cacheSet(DATA_KEY, D, store2);
+    if (store2) saveCache();
   }
 
   const pickEmo = s => ({ emojiJudul: s.emojiJudul, emojiSudah: s.emojiSudah, emojiBelum: s.emojiBelum });
@@ -326,11 +328,16 @@
         <div class="rn-dnav">
           <button class="icon-btn" data-act="rn-prevday" ${RSEL <= 1 ? 'disabled' : ''} aria-label="Hari sebelumnya">‹</button>
           <div class="rn-dmid">
-            <span class="daybar-date">${T.fmtTanggal(s.tanggal)} · ${when}</span>
+            <span class="daybar-date">${fmtY(s.tanggal)} · ${when}</span>
             <strong class="daybar-read">${T.esc(s.bacaan)}</strong>
             <span class="rn-chip ${meta ? 'ok' : ''}">${meta ? '✓ Renungan sudah ada' : 'Belum ada renungan'}</span>
           </div>
           <button class="icon-btn" data-act="rn-nextday" ${RSEL >= rnMaxDay() ? 'disabled' : ''} aria-label="Hari berikutnya">›</button>
+        </div>
+        <div class="rn-jump">
+          <label class="rn-jump-date"><span>Pilih tanggal</span>
+            <input class="input" type="date" id="rn-date" value="${s.tanggal}" min="${D.schedule[0].tanggal}" max="${D.schedule[D.schedule.length - 1].tanggal}"></label>
+          <button class="chip-btn" data-act="rn-nextempty">Hari kosong berikutnya ›</button>
         </div>
         ${RSEL !== cur ? '<button class="link-btn rn-today" data-act="rn-today">Kembali ke hari ini</button>' : ''}
       </section>
@@ -351,7 +358,7 @@
         <article class="rn rn-preview" id="rn-prev"></article>
       </section>
       <section class="card">
-        <div class="card-head"><h3>Status renungan</h3><span class="muted small">7 hari ke belakang & ke depan</span></div>
+        <div class="card-head"><h3>Status renungan</h3><span class="muted small">${(D.rnMeta || []).length} dari ${D.schedule.length} hari sudah ada</span></div>
         <div class="rn-slist">${rows}</div>
       </section>`;
   }
@@ -364,6 +371,30 @@
     if (rnMetaMap()[RSEL] && !(RSEL in RN_TEXT) && !RN_LOADING.has(RSEL)) rnFetchText(RSEL);
   }
 
+  const BLN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  /** "Jumat, 30 Jun" (+ tahun kalau bukan tahun ini, karena jadwal s/d Wahyu melewati beberapa tahun) */
+  const fmtY = (ymd, opt) => T.fmtTanggal(ymd, opt) + (ymd.slice(0, 4) !== (D.today || '').slice(0, 4) ? ' ' + ymd.slice(0, 4) : '');
+  const tglTeks = ymd => { const p = ymd.split('-').map(Number); return p[2] + ' ' + BLN[p[1] - 1] + ' ' + p[0]; };
+
+  /**
+   * Teks ini untuk hari bacaan yang mana?
+   * 1) Guidelines (mis. "Kejadian 43–44") dicocokkan ke jadwal — paling bisa diandalkan.
+   * 2) Tanggal di teks; kalau tahunnya salah ketik (2025 vs 2026), dicari tanggal & bulan yang sama.
+   */
+  function rnTarget(v) {
+    const g = T.rn.parseGuide(v);
+    const gDay = g ? D.schedule.find(x => T.rn.norm(x.bacaan) === T.rn.norm(g)) || null : null;
+    const tgl = T.rn.parseDate(v);
+    let dDay = tgl ? D.schedule.find(x => x.tanggal === tgl) || null : null, yearFix = false;
+    if (tgl && !dDay) {
+      const md = tgl.slice(5);
+      const c = D.schedule.filter(x => x.tanggal.slice(5) === md);
+      dDay = (gDay && c.find(x => x.hari === gDay.hari)) || c.sort((a, b) => Math.abs(a.hari - RSEL) - Math.abs(b.hari - RSEL))[0] || null;
+      yearFix = !!dDay;
+    }
+    return { g, gDay, tgl, dDay, yearFix, target: gDay || dDay, conflict: !!(gDay && dDay && gDay.hari !== dDay.hari) };
+  }
+
   /** perbarui hitungan karakter, peringatan, tombol simpan & pratinjau (tanpa menggambar ulang kotak teks) */
   function syncRn() {
     const ta = document.getElementById('rn-text'); if (!ta) return;
@@ -371,24 +402,24 @@
     document.getElementById('rn-count').textContent = n ? n.toLocaleString('id-ID') + ' karakter' : '';
     const save = document.getElementById('rn-save');
     const dirty = rnDirty(RSEL) && n > 0;
-    // peringatan tanggal & guidelines
+    // peringatan hari / tanggal / guidelines
     const hints = [];
-    const tgl = T.rn.parseDate(v);
-    const day = tgl && D.schedule.find(x => x.tanggal === tgl);
-    const wrongDay = !!(day && day.hari !== RSEL && !RN_FORCE[RSEL]);
-    if (tgl && !day) hints.push(`<p class="warn">⚠️ Tanggal di teks (${T.fmtTanggal(tgl)}) tidak ada di jadwal yang bisa diupload (maks. 30 hari ke depan).</p>`);
-    if (wrongDay) hints.push(`<p class="warn">⚠️ Tanggal di teks: <b>${T.fmtTanggal(tgl)}</b>, tapi yang dipilih <b>${T.fmtTanggal(BY[RSEL].tanggal)}</b>.<br>
-        <button class="link-btn" data-act="rn-move" data-h="${day.hari}">Pindahkan ke ${T.fmtTanggal(tgl, { short: true })}</button> ·
-        <button class="link-btn" data-act="rn-force">Tetap simpan di ${T.fmtTanggal(BY[RSEL].tanggal, { short: true })}</button></p>`);
+    const t = rnTarget(v);
+    const sel = BY[RSEL];
+    const wrongDay = !!(t.target && t.target.hari !== RSEL && !RN_FORCE[RSEL]);
+    if (t.target && t.target.hari === RSEL) hints.push(`<p class="ok">✓ Cocok dengan jadwal: ${T.esc(sel.bacaan)}</p>`);
+    if (wrongDay) hints.push(`<p class="warn">⚠️ Teks ini untuk <b>${T.fmtTanggal(t.target.tanggal, { short: true })} · ${T.esc(t.target.bacaan)}</b>
+        (menurut ${t.gDay ? 'Guidelines' : 'tanggal di teks'}), tapi yang dipilih <b>${T.fmtTanggal(sel.tanggal, { short: true })} · ${T.esc(sel.bacaan)}</b>.<br>
+        <button class="link-btn" data-act="rn-move" data-h="${t.target.hari}">Pindahkan ke ${T.fmtTanggal(t.target.tanggal, { short: true })}</button> ·
+        <button class="link-btn" data-act="rn-force">Tetap simpan di ${T.fmtTanggal(sel.tanggal, { short: true })}</button></p>`);
+    if (t.yearFix) hints.push(`<p class="info">ℹ️ Tahun di teks tertulis <b>${tglTeks(t.tgl)}</b>, dianggap <b>${tglTeks(t.dDay.tanggal)}</b> sesuai jadwal.</p>`);
+    if (t.conflict) hints.push(`<p class="warn">⚠️ Tanggal di teks (${tglTeks(t.tgl)}) dan Guidelines (${T.esc(t.g)}) menunjuk hari berbeda. Aplikasi memakai Guidelines.</p>`);
+    if (t.g && !t.gDay) hints.push(`<p class="warn">⚠️ Guidelines "${T.esc(t.g)}" tidak ditemukan di jadwal. Cek penulisannya.</p>`);
+    if (t.tgl && !t.dDay && !t.gDay) hints.push(`<p class="warn">⚠️ Tanggal di teks (${tglTeks(t.tgl)}) tidak ada di jadwal.</p>`);
     const savingThis = RN_SAVING === RSEL;
     save.disabled = savingThis || !dirty || n > 30000 || wrongDay;
-    save.textContent = savingThis ? 'Menyimpan…' : wrongDay && dirty ? 'Cek tanggal dulu ↑'
+    save.textContent = savingThis ? 'Menyimpan…' : wrongDay && dirty ? 'Cek hari dulu ↑'
       : rnMetaMap()[RSEL] ? (dirty ? 'Simpan perubahan' : 'Tersimpan ✓') : 'Simpan';
-    const g = T.rn.parseGuide(v);
-    if (g) {
-      if (T.rn.norm(g) === T.rn.norm(BY[RSEL].bacaan)) hints.push(`<p class="ok">✓ Cocok dengan jadwal: ${T.esc(BY[RSEL].bacaan)}</p>`);
-      else hints.push(`<p class="warn">⚠️ Guidelines di teks: <b>${T.esc(g)}</b>, tapi jadwal hari ini: <b>${T.esc(BY[RSEL].bacaan)}</b>.</p>`);
-    }
     if (n > 30000) hints.push('<p class="warn">⚠️ Terlalu panjang (maks. 30.000 karakter).</p>');
     const hint = document.getElementById('rn-hint');
     hint.innerHTML = hints.join(''); hint.hidden = !hints.length;
@@ -399,12 +430,11 @@
   function rnDetect(wasEmpty) {
     const ta = document.getElementById('rn-text'); if (!ta) return;
     RN_DRAFT[RSEL] = ta.value;
-    const tgl = T.rn.parseDate(ta.value);
-    const day = tgl && D.schedule.find(x => x.tanggal === tgl);
+    const day = rnTarget(ta.value).target;
     if (wasEmpty && day && day.hari !== RSEL && !rnDirty(day.hari)) {
       const replace = !!rnMetaMap()[day.hari];
       rnMove(day.hari);
-      T.toast('Hari dipilih otomatis sesuai tanggal di teks: ' + T.fmtTanggal(tgl, { short: true }) +
+      T.toast('Hari dipilih otomatis: ' + T.fmtTanggal(day.tanggal, { short: true }) + ' · ' + day.bacaan +
         (replace ? '. Renungan lama di hari itu akan diganti saat disimpan.' : ''), { ms: 5000 });
       return;
     }
@@ -441,7 +471,7 @@
       RN_TEXT[h] = r.item.teks; delete RN_DRAFT[h];
       D.rnMeta = r.rnMeta; saveCache();
       const cur = D.currentDay || 1;
-      T.toast(h <= cur ? 'Renungan tersimpan ✓ Langsung tampil di aplikasi anggota' : 'Renungan tersimpan ✓ Tampil pada ' + T.fmtTanggal(BY[h].tanggal, { short: true }), { ms: 4000 });
+      T.toast(h <= cur ? 'Renungan tersimpan ✓ Langsung tampil di aplikasi anggota' : 'Renungan tersimpan ✓ Tampil pada ' + fmtY(BY[h].tanggal, { short: true }), { ms: 4000 });
     } catch (e) {
       T.toast('Gagal menyimpan: ' + (loginError(e) || e.message), { ms: 6000 });
     }
@@ -651,6 +681,12 @@
       case 'rn-prevday': return rnSelect(RSEL - 1);
       case 'rn-nextday': return rnSelect(RSEL + 1);
       case 'rn-today': return rnSelect(D.currentDay || 1);
+      case 'rn-nextempty': {
+        const mm = rnMetaMap();
+        const nx = D.schedule.find(x => x.hari > RSEL && !mm[x.hari]);
+        if (!nx) return T.toast('Semua hari setelah ini sudah ada renungannya 🎉');
+        return rnSelect(nx.hari);
+      }
       case 'rn-move': return rnMove(+el.dataset.h);
       case 'rn-force': RN_FORCE[RSEL] = true; return syncRn();
       case 'rn-save': return rnSave();
@@ -679,7 +715,12 @@
     else if (t.id === 'pq') { PQ = t.value; renderPBody(); }
     else if (t.dataset && t.dataset.ef) { EMO[t.dataset.ef] = t.value; syncEmoUI(true); }
   });
-  document.addEventListener('change', e => { if (e.target.id === 'psort') { SORT = e.target.value; renderPBody(); } });
+  document.addEventListener('change', e => {
+    if (e.target.id === 'rn-date' && e.target.value) {
+      const d = D.schedule.find(x => x.tanggal >= e.target.value);   // hari libur → bacaan berikutnya
+      if (d) rnSelect(d.hari);
+      return;
+    } if (e.target.id === 'psort') { SORT = e.target.value; renderPBody(); } });
   document.getElementById('btn-refresh').addEventListener('click', () => load(true));
   document.getElementById('btn-logout').addEventListener('click', () => {
     ss.del(PIN_KEY); if (store2) T.cacheDel(DATA_KEY, store2); PIN = null; D = null;
