@@ -3,7 +3,7 @@
 Web lapor progres baca Alkitab bersama, dibuat untuk dipakai di HP.
 **Gratis**: tampilan di GitHub Pages, data di Google Sheets.
 
-> **Sudah memakai versi sebelumnya?** Lihat bagian [Update ke versi 4](#update-ke-versi-4) dan [Update ke versi 3](#update-ke-versi-3) di bawah.
+> **Sudah memakai versi sebelumnya?** Lihat bagian [Update ke versi 5](#update-ke-versi-5) di bawah.
 
 - **Anggota** membuka **link pribadinya sendiri** (berisi kode rahasia), lalu tekan **"Sudah saya baca"**. Tidak ada daftar nama untuk dipilih, jadi orang lain tidak bisa iseng melapor atas nama orang lain.
 - **Admin** buka `admin.html` (pakai PIN) dan dapat 4 menu:
@@ -97,6 +97,32 @@ Google Sheets            (sheet: Pengaturan, Anggota, Jadwal, Laporan)
 - **Ada yang lapor lewat chat?** Menu **Checklist** → ketuk lingkaran di samping namanya.
   Untuk bacaan hari lain, ketuk namanya → centang di daftar bacaan, atau **Tandai semua sudah sampai hari ini**.
 - **Mau suasana baru?** Menu **Emoji & Link** → pilih emoji / 🎲 Acak → **Simpan emoji**.
+
+---
+
+## Update ke versi 5
+
+Versi 5 menambah **renungan harian**:
+- **Anggota**: kartu ringkas "Renungan hari ini" di bawah tombol *Sudah saya baca*. Ketuk untuk membaca layar penuh
+  (A−/A+ ukuran huruf, Salin, ‹ › renungan sebelumnya, ketuk judul untuk daftar semua tanggal).
+  Kalau belum diupload: "Renungan hari ini belum tersedia" + tautan ke renungan kemarin.
+- **Admin / Pendeta**: menu **Renungan**. Tempel teks dari WhatsApp apa adanya. Tanggal di baris pertama
+  dikenali otomatis, Guidelines dicek dengan jadwal, ada pratinjau. Bisa diupload s/d 30 hari ke depan;
+  renungan baru muncul di aplikasi anggota pada harinya.
+- **PIN Renungan** (baris baru di sheet Pengaturan): PIN khusus pendeta yang **hanya** bisa mengelola renungan.
+
+Langkah (urutan penting: Google Sheet dulu, baru GitHub):
+1. Apps Script → ganti seluruh isi `Code.gs` dengan versi 5 → Save.
+2. Jalankan **`setupAwal`** → membuat sheet **Renungan** dan baris **PIN Renungan** di Pengaturan (data lama aman).
+3. Isi **PIN Renungan** di sheet Pengaturan (minimal 8 karakter, beda dengan PIN Admin) → berikan ke pendeta.
+4. Deploy → Manage deployments → ✏️ → *New version* → Deploy. Cek URL `/exec` menampilkan `"versi":3.2`.
+5. GitHub: timpa `index.html`, `admin.html`, `assets/app.js`, `assets/admin.js`, `assets/common.js`, `assets/style.css` → commit → push.
+   Jangan ganti `config.js`.
+6. Pendeta membuka `…/admin.html` dan masuk dengan **PIN Renungan** → hanya melihat menu Renungan.
+
+Kapasitas: 1 renungan ±3 KB; seluruh program (±590 hari) ±2 MB di sheet Renungan. Satu sel muat 50.000 karakter
+(aplikasi membatasi 30.000 per renungan). Anggota hanya mengunduh renungan hari ini (ikut permintaan yang sudah ada);
+renungan lain diambil saat dibuka dan disimpan di HP.
 
 ---
 

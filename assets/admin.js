@@ -17,9 +17,13 @@
     rekap: '<svg viewBox="0 0 24 24"><path d="M8 4h8M8 4a2 2 0 0 0-2 2v0H5a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1a2 2 0 0 0-2-2M8 4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2M8 11h8M8 15h5"/></svg>',
     checklist: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m8 12.5 2.8 2.8L16.5 9"/></svg>',
     progres: '<svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+    renungan: '<svg viewBox="0 0 24 24"><path d="M12 6.5C10.4 5 8.2 4.3 4 4.3v14c4.2 0 6.4.7 8 2.2 1.6-1.5 3.8-2.2 8-2.2v-14c-4.2 0-6.4.7-8 2.2zM12 6.5v14"/></svg>',
     atur: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5c.9 1.2 2.1 1.8 3.5 1.8s2.6-.6 3.5-1.8M9 9.5h.01M15 9.5h.01" stroke-width="2.4"/></svg>',
   };
-  const VIEWS = [['rekap', 'Rekap'], ['checklist', 'Checklist'], ['progres', 'Progres'], ['atur', 'Emoji & Link']];
+  const VIEWS_ADMIN = [['rekap', 'Rekap'], ['checklist', 'Checklist'], ['progres', 'Progres'], ['renungan', 'Renungan'], ['atur', 'Emoji/Link']];
+  const VIEWS_PENDETA = [['renungan', 'Renungan']];
+  let VIEWS = VIEWS_ADMIN;
+  let ROLE = 'admin';
   const EMO_KEYS = [['emojiJudul', 'Emoji judul', T.EMOJI_SUDAH], ['emojiSudah', 'Emoji sudah', T.EMOJI_SUDAH], ['emojiBelum', 'Emoji belum / tertinggal', T.EMOJI_BELUM]];
 
   let D = null, BY = {}, P = {}, PIN = null, SEL = 0;
@@ -27,6 +31,8 @@
   let FILTER = 'semua', CQ = '', PQ = '', SORT = 'tertinggal', PMODE = 'daftar';
   let PENDING = new Set(), EMO = null, MODAL = null, MODAL_NAMA = null, MODAL_ALL = false;
   let CONFIRM = null, confirmTimer = null, SAVING_EMO = false;
+  let RN_FORCE = {};                          // "tetap simpan di hari ini" walau tanggal di teks berbeda
+  let RSEL = 0, RN_TEXT = {}, RN_DRAFT = {}, RN_LOADING = new Set(), RN_SAVING = 0, RN_PREVIEW = false, RN_DEL = false;
   if (!VIEWS.some(v => v[0] === VIEW)) VIEW = 'rekap';
 
   /* ============ muat data ============ */
@@ -35,7 +41,7 @@
   try { store2 = sessionStorage; } catch (e) { /* diblokir */ }
 
   async function boot() {
-    T.demoBanner('PIN admin: <b>1234</b>. <a class="demo-admin" href="index.html">← Halaman anggota</a>');
+    T.demoBanner('PIN admin: <b>1234</b> · PIN pendeta: <b>pendeta-demo</b>. <a class="demo-admin" href="index.html">← Halaman anggota</a>');
     PIN = ss.get(PIN_KEY);
     if (!PIN) return renderLogin();
     // tampilkan data terakhir (hanya selama tab ini terbuka), lalu perbarui di belakang
@@ -46,8 +52,8 @@
 
   function loginError(e) {
     const m = String(e.message || '');
-    if (m === 'PIN_ADMIN_SALAH') return 'PIN admin salah.';
-    if (m === 'PIN_LEMAH') return 'PIN admin di Google Sheet masih bawaan atau kurang dari 8 karakter. Ganti dulu di sheet Pengaturan (kolom Nilai, baris PIN Admin), lalu coba lagi.';
+    if (m === 'PIN_ADMIN_SALAH') return 'PIN salah.';
+    if (m === 'PIN_LEMAH') return 'PIN di Google Sheet masih bawaan atau kurang dari 8 karakter. Ganti dulu di sheet Pengaturan (kolom Nilai, baris PIN Admin / PIN Renungan), lalu coba lagi.';
     if (m.indexOf('ADMIN_TERKUNCI') === 0) return `Terlalu banyak PIN salah. Login admin dikunci, coba lagi dalam ${m.split(':')[1] || 15} menit. (Pemilik Sheet bisa membuka kunci lewat menu 📖 Tekun Baca → Buka kunci login admin.)`;
     return null;
   }
@@ -69,7 +75,7 @@
     }
     T.syncing(false);
     ss.set(PIN_KEY, PIN);
-    if (PENDING.size || SAVING_EMO) return; // ada perubahan yang sedang disimpan → jangan timpa
+    if (PENDING.size || SAVING_EMO || RN_SAVING) return; // ada perubahan yang sedang disimpan → jangan timpa
     const json = JSON.stringify(data);
     if (D && json === LAST_JSON) { if (fresh) T.toast('Data sudah yang terbaru'); return; } // tidak ada yang berubah
     LAST_JSON = json;
@@ -80,7 +86,7 @@
   function saveCache() {
     if (!D || !store2) return;
     const progress = {};
-    D.members.forEach(m => { progress[m.nama] = Array.from(P[m.nama] || []).sort((a, b) => a - b); });
+    (D.members || []).forEach(m => { progress[m.nama] = Array.from(P[m.nama] || []).sort((a, b) => a - b); });
     T.cacheSet(DATA_KEY, Object.assign({}, D, { progress }), store2);
   }
 
@@ -91,10 +97,15 @@
     D = data;
     BY = T.indexSchedule(D.schedule);
     P = {};
-    D.members.forEach(m => { P[m.nama] = new Set(D.progress[m.nama] || []); });
+    (D.members || []).forEach(m => { P[m.nama] = new Set(D.progress[m.nama] || []); });
+    ROLE = D.role === 'pendeta' ? 'pendeta' : 'admin';
+    VIEWS = ROLE === 'pendeta' ? VIEWS_PENDETA : VIEWS_ADMIN;
+    if (!VIEWS.some(v => v[0] === VIEW)) VIEW = VIEWS[0][0];
+    if (!RSEL || !BY[RSEL]) RSEL = D.currentDay || 1;
+    document.querySelector('.topbar .tag').textContent = ROLE === 'pendeta' ? 'Pendeta' : 'Admin';
     if (!emoDirty) EMO = pickEmo(D.settings);
     document.getElementById('group-name').textContent = D.settings.namaKelompok;
-    document.title = 'Admin · ' + D.settings.namaKelompok;
+    document.title = (ROLE === 'pendeta' ? 'Renungan · ' : 'Admin · ') + D.settings.namaKelompok;
     if (!SEL || SEL > D.currentDay) SEL = D.currentDay;
     $tools.hidden = false;
     renderAll();
@@ -108,11 +119,11 @@
     $tools.hidden = true; $day.hidden = true; $nav.hidden = true;
     document.body.classList.remove('has-nav');
     $app.innerHTML = `<section class="card login">
-      <div class="big-icon">🔐</div><h2>Masuk sebagai admin</h2>
-      <form id="login"><input class="input pin-input" type="password" placeholder="PIN admin" autocomplete="current-password" autocapitalize="off" spellcheck="false" required aria-label="PIN admin">
+      <div class="big-icon">🔐</div><h2>Masuk admin / pendeta</h2>
+      <form id="login"><input class="input pin-input" type="password" placeholder="PIN" autocomplete="current-password" autocapitalize="off" spellcheck="false" required aria-label="PIN">
         ${err ? `<p class="err">${T.esc(err)}</p>` : ''}
         <button class="btn-primary btn-big" type="submit">Masuk</button></form>
-      <p class="muted small">PIN diatur di sheet <b>Pengaturan</b> pada Google Sheet (minimal 8 karakter).</p></section>`;
+      <p class="muted small">Pakai <b>PIN Admin</b>, atau <b>PIN Renungan</b> untuk pendeta (hanya mengelola renungan). Keduanya diatur di sheet <b>Pengaturan</b>.</p></section>`;
     const f = document.getElementById('login');
     f.querySelector('input').focus();
     f.addEventListener('submit', e => { e.preventDefault(); PIN = f.querySelector('input').value.trim(); load(); });
@@ -123,7 +134,7 @@
 
   function renderDaybar() {
     const cur = D.currentDay;
-    if (!cur || VIEW === 'atur') { $day.hidden = true; return; }
+    if (!cur || VIEW === 'atur' || VIEW === 'renungan') { $day.hidden = true; return; }
     const r = BY[SEL];
     $day.hidden = false;
     $day.innerHTML = `<div class="wrap daybar-in">
@@ -137,6 +148,7 @@
   }
 
   function renderNav() {
+    if (VIEWS.length < 2) { $nav.hidden = true; document.body.classList.remove('has-nav'); return; }
     $nav.hidden = false;
     document.body.classList.add('has-nav');
     $nav.innerHTML = `<div class="bottomnav-in">${VIEWS.map(([k, l]) => `
@@ -145,7 +157,7 @@
   }
 
   function renderView() {
-    if (!D.currentDay && VIEW !== 'atur') {
+    if (!D.currentDay && VIEW !== 'atur' && VIEW !== 'renungan') {
       const f = D.schedule[0];
       $app.innerHTML = `<section class="card center-card"><div class="big-icon">📅</div><h2>Pembacaan belum dimulai</h2>
         <p class="muted">${f ? 'Mulai ' + T.fmtTanggal(f.tanggal) + ': ' + T.esc(f.bacaan) : 'Jadwal kosong. Jalankan setupAwal di Apps Script.'}</p></section>`;
@@ -154,6 +166,7 @@
     if (VIEW === 'rekap') { $app.innerHTML = viewRekap(); bindRekap(); }
     else if (VIEW === 'checklist') { $app.innerHTML = viewChecklist(); renderCFilter(); renderCList(); }
     else if (VIEW === 'progres') { $app.innerHTML = viewProgres(); renderPBody(); }
+    else if (VIEW === 'renungan') { $app.innerHTML = viewRenungan(); bindRenungan(); }
     else { $app.innerHTML = viewAtur(); syncEmoUI(); }
   }
 
@@ -287,6 +300,172 @@
     return `<p class="muted small">Terbaru di kiri. Ketuk kotak untuk menandai sudah / belum.</p>
       <div class="matrix-wrap"><table class="matrix"><thead><tr><th class="m-name"></th>${head}</tr></thead>
       <tbody>${body}</tbody><tfoot><tr><th class="m-name">Jumlah</th>${tot}</tr></tfoot></table></div>`;
+  }
+
+  /* ============ RENUNGAN (admin & pendeta) ============ */
+  function rnMetaMap() { const m = {}; (D.rnMeta || []).forEach(x => { m[x.hari] = x; }); return m; }
+  function rnMaxDay() { return D.schedule.length ? D.schedule[D.schedule.length - 1].hari : 1; }
+  function rnValue(h) { return h in RN_DRAFT ? RN_DRAFT[h] : (RN_TEXT[h] || ''); }
+  function rnDirty(h) { return h in RN_DRAFT && RN_DRAFT[h] !== (RN_TEXT[h] || ''); }
+
+  function viewRenungan() {
+    const cur = D.currentDay || 1; const s = BY[RSEL]; const meta = rnMetaMap()[RSEL];
+    const loading = RN_LOADING.has(RSEL);
+    const when = RSEL === cur ? 'hari ini' : RSEL === cur + 1 ? 'besok' : RSEL < cur ? 'sudah lewat' : 'akan datang';
+    const from = Math.max(1, cur - 6), to = Math.min(rnMaxDay(), cur + 7);
+    const mm = rnMetaMap(); let rows = '';
+    for (let h = to; h >= from; h--) {
+      const x = BY[h]; if (!x) continue;
+      rows += `<button class="rn-srow ${h === RSEL ? 'on' : ''}" data-rsel="${h}">
+        <span class="rn-s-date">${T.fmtTanggal(x.tanggal, { short: true })}${h === cur ? ' <span class="mini-pill on">Hari ini</span>' : ''}</span>
+        <span class="rn-s-read">${T.esc(x.bacaan)}</span>
+        <span class="rn-s-st ${mm[h] ? 'ok' : ''}">${rnDirty(h) ? '✎ draf' : mm[h] ? '✓' : '–'}</span></button>`;
+    }
+    return `
+      <section class="card rn-adm-day">
+        <div class="rn-dnav">
+          <button class="icon-btn" data-act="rn-prevday" ${RSEL <= 1 ? 'disabled' : ''} aria-label="Hari sebelumnya">‹</button>
+          <div class="rn-dmid">
+            <span class="daybar-date">${T.fmtTanggal(s.tanggal)} · ${when}</span>
+            <strong class="daybar-read">${T.esc(s.bacaan)}</strong>
+            <span class="rn-chip ${meta ? 'ok' : ''}">${meta ? '✓ Renungan sudah ada' : 'Belum ada renungan'}</span>
+          </div>
+          <button class="icon-btn" data-act="rn-nextday" ${RSEL >= rnMaxDay() ? 'disabled' : ''} aria-label="Hari berikutnya">›</button>
+        </div>
+        ${RSEL !== cur ? '<button class="link-btn rn-today" data-act="rn-today">Kembali ke hari ini</button>' : ''}
+      </section>
+      <section class="card">
+        <div class="card-head"><h3>Teks renungan</h3><span class="muted small" id="rn-count"></span></div>
+        <div class="rn-hint" id="rn-hint" hidden></div>
+        <textarea class="recap-text rn-input" id="rn-text" placeholder="${loading ? 'Memuat renungan…' : 'Tempel renungan dari WhatsApp di sini. Tanggal di baris pertama akan dikenali otomatis.'}" ${loading ? 'disabled' : ''} aria-label="Teks renungan"></textarea>
+        <div class="row-btns mt-s">
+          <button class="btn-secondary" data-act="rn-preview" aria-pressed="${RN_PREVIEW}">${RN_PREVIEW ? 'Tutup pratinjau' : 'Pratinjau'}</button>
+          <button class="btn-primary" data-act="rn-save" id="rn-save">Simpan</button>
+        </div>
+        <p class="muted small rn-status" id="rn-status">${meta ? `Tersimpan ${T.relTime(meta.t)} oleh ${T.esc(meta.oleh || '-')}.` : ''}
+          ${RSEL > cur ? ` Akan tampil di aplikasi anggota pada ${T.fmtTanggal(s.tanggal, { short: true })}.` : ''}</p>
+        ${meta ? `<button class="link-btn danger ${RN_DEL ? 'confirm' : ''}" data-act="rn-del">${RN_DEL ? 'Yakin hapus? Ketuk lagi' : 'Hapus renungan ini'}</button>` : ''}
+      </section>
+      <section class="card" id="rn-prev-card" ${RN_PREVIEW ? '' : 'hidden'}>
+        <p class="eyebrow">Pratinjau · seperti yang dilihat anggota</p>
+        <article class="rn rn-preview" id="rn-prev"></article>
+      </section>
+      <section class="card">
+        <div class="card-head"><h3>Status renungan</h3><span class="muted small">7 hari ke belakang & ke depan</span></div>
+        <div class="rn-slist">${rows}</div>
+      </section>`;
+  }
+
+  function bindRenungan() {
+    const ta = document.getElementById('rn-text'); if (!ta) return;
+    ta.value = rnValue(RSEL);
+    ta.addEventListener('paste', () => { const wasEmpty = !ta.value.trim(); setTimeout(() => rnDetect(wasEmpty), 0); });
+    syncRn();
+    if (rnMetaMap()[RSEL] && !(RSEL in RN_TEXT) && !RN_LOADING.has(RSEL)) rnFetchText(RSEL);
+  }
+
+  /** perbarui hitungan karakter, peringatan, tombol simpan & pratinjau (tanpa menggambar ulang kotak teks) */
+  function syncRn() {
+    const ta = document.getElementById('rn-text'); if (!ta) return;
+    const v = ta.value; const n = v.trim().length;
+    document.getElementById('rn-count').textContent = n ? n.toLocaleString('id-ID') + ' karakter' : '';
+    const save = document.getElementById('rn-save');
+    const dirty = rnDirty(RSEL) && n > 0;
+    // peringatan tanggal & guidelines
+    const hints = [];
+    const tgl = T.rn.parseDate(v);
+    const day = tgl && D.schedule.find(x => x.tanggal === tgl);
+    const wrongDay = !!(day && day.hari !== RSEL && !RN_FORCE[RSEL]);
+    if (tgl && !day) hints.push(`<p class="warn">⚠️ Tanggal di teks (${T.fmtTanggal(tgl)}) tidak ada di jadwal yang bisa diupload (maks. 30 hari ke depan).</p>`);
+    if (wrongDay) hints.push(`<p class="warn">⚠️ Tanggal di teks: <b>${T.fmtTanggal(tgl)}</b>, tapi yang dipilih <b>${T.fmtTanggal(BY[RSEL].tanggal)}</b>.<br>
+        <button class="link-btn" data-act="rn-move" data-h="${day.hari}">Pindahkan ke ${T.fmtTanggal(tgl, { short: true })}</button> ·
+        <button class="link-btn" data-act="rn-force">Tetap simpan di ${T.fmtTanggal(BY[RSEL].tanggal, { short: true })}</button></p>`);
+    const savingThis = RN_SAVING === RSEL;
+    save.disabled = savingThis || !dirty || n > 30000 || wrongDay;
+    save.textContent = savingThis ? 'Menyimpan…' : wrongDay && dirty ? 'Cek tanggal dulu ↑'
+      : rnMetaMap()[RSEL] ? (dirty ? 'Simpan perubahan' : 'Tersimpan ✓') : 'Simpan';
+    const g = T.rn.parseGuide(v);
+    if (g) {
+      if (T.rn.norm(g) === T.rn.norm(BY[RSEL].bacaan)) hints.push(`<p class="ok">✓ Cocok dengan jadwal: ${T.esc(BY[RSEL].bacaan)}</p>`);
+      else hints.push(`<p class="warn">⚠️ Guidelines di teks: <b>${T.esc(g)}</b>, tapi jadwal hari ini: <b>${T.esc(BY[RSEL].bacaan)}</b>.</p>`);
+    }
+    if (n > 30000) hints.push('<p class="warn">⚠️ Terlalu panjang (maks. 30.000 karakter).</p>');
+    const hint = document.getElementById('rn-hint');
+    hint.innerHTML = hints.join(''); hint.hidden = !hints.length;
+    if (RN_PREVIEW) document.getElementById('rn-prev').innerHTML = v.trim() ? T.rn.format(v) : '<p class="muted">Belum ada teks.</p>';
+  }
+
+  /** setelah tempel: kalau tanggal di teks menunjuk hari lain yang masih kosong, pindah otomatis */
+  function rnDetect(wasEmpty) {
+    const ta = document.getElementById('rn-text'); if (!ta) return;
+    RN_DRAFT[RSEL] = ta.value;
+    const tgl = T.rn.parseDate(ta.value);
+    const day = tgl && D.schedule.find(x => x.tanggal === tgl);
+    if (wasEmpty && day && day.hari !== RSEL && !rnDirty(day.hari)) {
+      const replace = !!rnMetaMap()[day.hari];
+      rnMove(day.hari);
+      T.toast('Hari dipilih otomatis sesuai tanggal di teks: ' + T.fmtTanggal(tgl, { short: true }) +
+        (replace ? '. Renungan lama di hari itu akan diganti saat disimpan.' : ''), { ms: 5000 });
+      return;
+    }
+    syncRn();
+  }
+
+  function rnMove(h) {
+    const ta = document.getElementById('rn-text');
+    const v = ta ? ta.value : rnValue(RSEL);
+    delete RN_DRAFT[RSEL];                   // hari asal kembali seperti semula
+    RN_DRAFT[h] = v; RSEL = h; RN_DEL = false;
+    renderView(); window.scrollTo(0, 0);
+  }
+
+  async function rnFetchText(h) {
+    RN_LOADING.add(h);
+    if (h === RSEL) renderView();
+    try {
+      const r = await T.apiPost({ action: 'rnGet', pin: PIN, hari: h });
+      RN_TEXT[h] = r.item ? r.item.teks : '';
+    } catch (e) {
+      T.toast('Gagal memuat renungan: ' + (loginError(e) || e.message), { ms: 5000 });
+    }
+    RN_LOADING.delete(h);
+    if (h === RSEL && VIEW === 'renungan') renderView();
+  }
+
+  async function rnSave() {
+    const ta = document.getElementById('rn-text'); if (!ta || RN_SAVING) return;   // satu simpan pada satu waktu
+    const h = RSEL; const teks = ta.value.trim(); if (!teks) return;
+    RN_SAVING = h; RN_DRAFT[h] = ta.value; syncRn();
+    try {
+      const r = await T.apiPost({ action: 'rnSave', pin: PIN, hari: h, teks });
+      RN_TEXT[h] = r.item.teks; delete RN_DRAFT[h];
+      D.rnMeta = r.rnMeta; saveCache();
+      const cur = D.currentDay || 1;
+      T.toast(h <= cur ? 'Renungan tersimpan ✓ Langsung tampil di aplikasi anggota' : 'Renungan tersimpan ✓ Tampil pada ' + T.fmtTanggal(BY[h].tanggal, { short: true }), { ms: 4000 });
+    } catch (e) {
+      T.toast('Gagal menyimpan: ' + (loginError(e) || e.message), { ms: 6000 });
+    }
+    RN_SAVING = 0;
+    if (VIEW === 'renungan') renderView();
+  }
+
+  async function rnDelete() {
+    const h = RSEL;
+    try {
+      const r = await T.apiPost({ action: 'rnDelete', pin: PIN, hari: h });
+      D.rnMeta = r.rnMeta; delete RN_TEXT[h]; delete RN_DRAFT[h]; saveCache();
+      T.toast('Renungan dihapus');
+    } catch (e) { T.toast('Gagal menghapus: ' + (loginError(e) || e.message), { ms: 6000 }); }
+    RN_DEL = false;
+    if (VIEW === 'renungan') renderView();
+  }
+
+  function rnSelect(h) {
+    if (!BY[h]) return;
+    const ta = document.getElementById('rn-text');
+    if (ta && ta.value !== (RN_TEXT[RSEL] || '')) RN_DRAFT[RSEL] = ta.value;   // draf disimpan sementara
+    RSEL = h; RN_DEL = false;
+    renderView();
   }
 
   /* ============ 4. EMOJI & LINK ============ */
@@ -439,6 +618,7 @@
       VIEW = el.dataset.view; T.store.set('tbf_admin_view', VIEW);
       renderAll(); window.scrollTo(0, 0); return;
     }
+    if ((el = e.target.closest('[data-rsel]'))) return rnSelect(+el.dataset.rsel);
     if ((el = e.target.closest('[data-tick]'))) return toggleDay(el.dataset.tick, SEL);
     if ((el = e.target.closest('[data-mtick]'))) return MODAL_NAMA && toggleDay(MODAL_NAMA, +el.dataset.mtick);
     if ((el = e.target.closest('[data-cell]'))) { const i = el.dataset.cell.lastIndexOf('|'); return toggleDay(el.dataset.cell.slice(0, i), +el.dataset.cell.slice(i + 1)); }
@@ -468,6 +648,20 @@
       }
       case 'emo-revert': EMO = pickEmo(D.settings); return syncEmoUI();
       case 'emo-save': return saveEmo();
+      case 'rn-prevday': return rnSelect(RSEL - 1);
+      case 'rn-nextday': return rnSelect(RSEL + 1);
+      case 'rn-today': return rnSelect(D.currentDay || 1);
+      case 'rn-move': return rnMove(+el.dataset.h);
+      case 'rn-force': RN_FORCE[RSEL] = true; return syncRn();
+      case 'rn-save': return rnSave();
+      case 'rn-preview': RN_PREVIEW = !RN_PREVIEW; {
+        const card = document.getElementById('rn-prev-card'); card.hidden = !RN_PREVIEW;
+        el.textContent = RN_PREVIEW ? 'Tutup pratinjau' : 'Pratinjau'; syncRn();
+        if (RN_PREVIEW) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } return;
+      case 'rn-del':
+        if (!RN_DEL) { RN_DEL = true; renderView(); setTimeout(() => { if (RN_DEL) { RN_DEL = false; if (VIEW === 'renungan') renderView(); } }, 4000); return; }
+        return rnDelete();
       case 'modal-all': MODAL_ALL = true; return MODAL && MODAL.setHtml(personHtml(MODAL_NAMA));
       case 'mark-all': {
         if (!askConfirm('all:' + MODAL_NAMA)) return;
@@ -480,7 +674,8 @@
   });
   document.addEventListener('input', e => {
     const t = e.target;
-    if (t.id === 'cq') { CQ = t.value; renderCList(); }
+    if (t.id === 'rn-text') { RN_DRAFT[RSEL] = t.value; syncRn(); }
+    else if (t.id === 'cq') { CQ = t.value; renderCList(); }
     else if (t.id === 'pq') { PQ = t.value; renderPBody(); }
     else if (t.dataset && t.dataset.ef) { EMO[t.dataset.ef] = t.value; syncEmoUI(true); }
   });
@@ -488,6 +683,7 @@
   document.getElementById('btn-refresh').addEventListener('click', () => load(true));
   document.getElementById('btn-logout').addEventListener('click', () => {
     ss.del(PIN_KEY); if (store2) T.cacheDel(DATA_KEY, store2); PIN = null; D = null;
+    RN_TEXT = {}; RN_DRAFT = {}; RN_FORCE = {}; RSEL = 0; ROLE = 'admin'; VIEWS = VIEWS_ADMIN;
     if (MODAL) MODAL.close();
     renderLogin();
   });

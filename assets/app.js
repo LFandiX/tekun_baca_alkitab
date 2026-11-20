@@ -11,13 +11,17 @@
   const LATE_LIMIT = 10;
   const WA_DAYS = 14;         // jumlah bacaan terakhir yang bisa dipilih untuk dikirim ke WA
   const ACC_KEY = 'tbf_akun';
-  const APP_VERSI = '4.4';
+  const APP_VERSI = '5.0';
+  const RN_FONTS = [15, 16, 17, 18, 20, 22, 24];   // ukuran huruf layar baca
+  const RN_KEEP = 40;                               // renungan yang disimpan di HP
 
   let KODE = null, D = null, BY = {}, DONE = new Set(), PICK = new Set(), PENDING = new Set();
   let SHOW_BOARD = false, SHOW_ALL_LATE = false, LOADED_AT = 0, LAST_JSON = '';
   let WA_SEL = null;                         // bacaan yang dipilih untuk dikirim ke WA
   let WA_MORE = false;                       // panel "Pilih lain" terbuka?
   let MENU = null, MENU_ADD = false, MENU_DEL = null, ADDING = false;
+  let RN_MEM = {};                           // renungan yang sudah dimuat: hari → { hari, teks, v }
+  let READER = null;                         // layar baca renungan yang sedang terbuka
 
   /* ============ daftar akun di HP ini ============ */
   function accounts() {
@@ -59,6 +63,7 @@
     T.demoBanner('<a class="demo-admin" href="admin.html">Coba halaman admin →</a>');
     const tok = opts.kode ? { kode: opts.kode } : T.getToken();
     if (!tok) { KODE = null; D = null; renderAcct(); return renderNoAccess(false); }
+    if (KODE !== tok.kode && READER) rnClose();
     if (KODE !== tok.kode) { D = null; PICK.clear(); PENDING.clear(); WA_SEL = null; WA_MORE = false; SHOW_ALL_LATE = false; LAST_JSON = ''; }
     const myKode = KODE = tok.kode;
     const CKEY = 'tbf_c_' + KODE;
@@ -66,6 +71,7 @@
 
     // data sudah diambil (mis. saat menambah akun) → langsung pakai
     if (opts.data) {
+      T.expandSch(opts.data);
       T.store.set('tbf_kode', KODE);
       upsertAccount(KODE, opts.data.me.nama);
       LAST_JSON = JSON.stringify(opts.data); LOADED_AT = Date.now();
@@ -75,7 +81,7 @@
     // 1) tampilkan data terakhir yang tersimpan di HP → langsung muncul tanpa menunggu
     if (!D) {
       const cached = T.cacheGet(CKEY);
-      if (cached) { LAST_JSON = JSON.stringify(cached); apply(advanceDay(cached)); } else $app.innerHTML = '<div class="loading">Memuat…</div>';
+      if (cached) { LAST_JSON = JSON.stringify(cached); apply(advanceDay(T.expandSch(cached))); } else $app.innerHTML = '<div class="loading">Memuat…</div>';
     } else if (D.today !== T.todayStr()) {
       // halaman dibiarkan terbuka sampai hari berganti → langsung geser ke hari ini
       apply(advanceDay(D));
@@ -89,10 +95,11 @@
       if (myKode !== KODE) return;            // sudah pindah akun
       T.syncing(false);
       if (e.message === 'LINK_TIDAK_VALID') return handleInvalid();
-      if (D) return T.toast('Belum bisa terhubung. Menampilkan data terakhir.', { ms: 4000 });
+      if (D) { D._rnFail = true; render(); return T.toast('Belum bisa terhubung. Menampilkan data terakhir.', { ms: 4000 }); }
       return fatal(e);
     }
     if (myKode !== KODE) return;              // sudah pindah akun
+    T.expandSch(fresh);
     T.syncing(false);
     T.store.set('tbf_kode', KODE);
     upsertAccount(KODE, fresh.me.nama);
@@ -133,6 +140,7 @@
         tertinggal: (b.tertinggal || 0) + diff,
       }));
       if (WA_SEL && WA_SEL.size === 1 && WA_SEL.has(oldCur)) WA_SEL = null; // pilihan WA ikut ke hari ini
+      out.renungan = null;                    // renungan hari ini diambil dari server
     }
     return out;
   }
@@ -140,6 +148,7 @@
   function apply(data) {
     D = data;
     BY = T.indexSchedule(D.schedule);
+    if (D.renungan) rnRemember(D.renungan);
     DONE = new Set(D.done);
     PICK.forEach(d => { if (DONE.has(d)) PICK.delete(d); });
     if (D.me && KODE) upsertAccount(KODE, D.me.nama);
@@ -147,11 +156,13 @@
     document.title = D.me.nama + ' · ' + D.settings.namaKelompok;
     render();
     renderAcct();
+    if (READER) rnRender();
   }
 
   function saveCache() {
     if (!D || !KODE) return;
-    const snap = Object.assign({}, D, { ok: true, done: Array.from(DONE).sort((a, b) => a - b) });
+    const snap = Object.assign({}, D, { ok: true, done: Array.from(DONE).sort((a, b) => a - b), _rnFail: undefined });
+    if (snap.sch) delete snap.schedule;      // simpan versi ringkas saja (hemat ruang HP)
     T.cacheSet('tbf_c_' + KODE, snap);
   }
 
@@ -359,7 +370,7 @@
       return renderBar();
     }
     if (!WA_SEL) WA_SEL = new Set([cur]);
-    $app.innerHTML = todayCard(cur) + lateCard(cur) + progressCard(cur) + boardCard(cur) + installCard() + waCard(cur);
+    $app.innerHTML = todayCard(cur) + rnCard(cur) + lateCard(cur) + progressCard(cur) + boardCard(cur) + installCard() + waCard(cur);
     syncWa();
     renderBar();
   }
@@ -451,6 +462,169 @@
           : 'Di Chrome, tekan menu <b>⋮</b> lalu pilih <b>Tambahkan ke layar utama</b>.'} Besok tinggal buka seperti aplikasi.</p>
         <button class="link-btn" data-act="tip-off">Oke, mengerti</button></div>
     </section>`;
+  }
+
+  /* ============ renungan harian ============ */
+  function rnIdx() { const m = {}; ((D && D.rnIdx) || []).forEach(x => { m[x[0]] = x[1]; }); return m; }
+  function rnDays() { return ((D && D.rnIdx) || []).map(x => x[0]).sort((a, b) => a - b); }
+
+  function rnRemember(rec) {
+    if (!rec || !rec.hari) return;
+    RN_MEM[rec.hari] = rec;
+    T.cacheSet('tbf_rn_' + rec.hari, rec);
+    // simpan maksimal RN_KEEP renungan terakhir di HP
+    let list = [];
+    try { list = JSON.parse(T.store.get('tbf_rn_list') || '[]'); } catch (e) { list = []; }
+    list = list.filter(h => h !== rec.hari); list.push(rec.hari);
+    while (list.length > RN_KEEP) T.cacheDel('tbf_rn_' + list.shift());
+    T.store.set('tbf_rn_list', JSON.stringify(list));
+  }
+
+  /** Renungan yang sudah ada di HP & masih versi terbaru (kalau diedit pendeta, versinya berubah) */
+  function rnCached(h) {
+    const v = rnIdx()[h];
+    if (!v) return null;
+    if (RN_MEM[h] && RN_MEM[h].v === v) return RN_MEM[h];
+    const c = T.cacheGet('tbf_rn_' + h);
+    if (c && c.v === v) { RN_MEM[h] = c; return c; }
+    return null;
+  }
+
+  async function rnFetch(haris) {
+    const need = haris.filter(h => rnIdx()[h] && !rnCached(h));
+    if (!need.length) return;
+    const myKode = KODE;
+    const r = await T.apiGet({ action: 'renungan', k: myKode, hari: need.slice(0, 3).join(',') });
+    if (myKode !== KODE) return;
+    Object.keys(r.items || {}).forEach(h => { if (r.items[h]) rnRemember(r.items[h]); });
+  }
+
+  function rnNeighbors(h) {
+    const days = rnDays(); const i = days.indexOf(h);
+    if (i >= 0) return { prev: days[i - 1] || null, next: days[i + 1] || null };
+    return { prev: days.filter(d => d < h).pop() || null, next: days.find(d => d > h) || null };
+  }
+
+  function rnCard(cur) {
+    const rec = D.renungan && D.renungan.hari === cur ? D.renungan : null;
+    const head = (sub) => `<div class="rn-card-top"><span class="rn-ico" aria-hidden="true">📖</span>
+      <div><p class="eyebrow">Renungan hari ini</p>${sub}</div></div>`;
+    if (rec) {
+      const pv = T.rn.preview(rec.teks, 150);
+      return `<section class="card rn-card" data-act="rn-open" data-h="${cur}" role="button" tabindex="0" aria-label="Baca renungan hari ini">
+        ${head(`<h3>${T.esc(BY[cur].bacaan)}</h3>`)}
+        ${pv ? `<p class="rn-prev">${T.esc(pv)}</p>` : ''}
+        <span class="rn-more">Baca renungan <span aria-hidden="true">›</span></span></section>`;
+    }
+    if (D._stale && !D._rnFail) {
+      return `<section class="card rn-card">${head('<p class="muted small rn-wait">Memuat renungan…</p>')}
+        <div class="sk-line"></div><div class="sk-line short"></div></section>`;
+    }
+    const prevH = rnDays().filter(h => h < cur).pop();
+    return `<section class="card rn-card rn-empty">${head('<p class="muted small">Renungan hari ini belum tersedia.</p>')}
+      ${prevH ? `<button class="link-btn" data-act="rn-open" data-h="${prevH}">Baca renungan ${prevH === cur - 1 ? 'kemarin' : 'sebelumnya'} ›</button>` : ''}</section>`;
+  }
+
+  /* ---- layar baca (layar penuh) ---- */
+  function rnFont() { const f = +T.store.get('tbf_rn_font'); return RN_FONTS.indexOf(f) >= 0 ? f : 17; }
+
+  function rnOpen(h) {
+    if (!READER) {
+      const el = document.createElement('div');
+      el.className = 'reader'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true');
+      document.body.appendChild(el); document.body.classList.add('no-scroll');
+      el.addEventListener('click', onReaderClick);
+      READER = { el, h, list: false, err: null, pushed: false };
+      try { history.pushState({ tbfReader: 1 }, ''); READER.pushed = true; } catch (e) { /* abaikan */ }
+    }
+    READER.h = h; READER.list = false; READER.err = null;
+    rnRender();
+    rnLoad(h);
+  }
+
+  function rnClose(fromPop) {
+    if (!READER) return;
+    const pushed = READER.pushed;
+    READER.el.remove(); READER = null;
+    document.body.classList.remove('no-scroll');
+    if (pushed && !fromPop) { try { history.back(); } catch (e) { /* abaikan */ } }
+  }
+
+  async function rnLoad(h) {
+    const nb = rnNeighbors(h);
+    if (!rnCached(h)) {
+      try { await rnFetch([h, nb.prev].filter(Boolean)); }
+      catch (e) { if (READER && READER.h === h) { READER.err = e.message; rnRender(); } return; }
+      if (READER && READER.h === h) rnRender();
+    }
+    // ambil renungan sebelumnya diam-diam → tombol ‹ terasa instan
+    const pp = nb.prev ? rnNeighbors(nb.prev).prev : null;
+    rnFetch([nb.prev, pp].filter(Boolean)).catch(() => {});
+  }
+
+  function rnRender() {
+    if (!READER) return;
+    const h = READER.h; const s = BY[h] || {}; const rec = rnCached(h) || (D.renungan && D.renungan.hari === h ? D.renungan : null);
+    const nb = rnNeighbors(h); const f = rnFont();
+    let body;
+    if (READER.list) {
+      const days = rnDays().slice().reverse();
+      body = `<div class="rn-list"><p class="eyebrow">Semua renungan (${days.length})</p>${days.map(d => `
+        <button class="rn-li ${d === h ? 'on' : ''}" data-r="go" data-h="${d}">
+          <span class="rn-li-date">${BY[d] ? T.fmtTanggal(BY[d].tanggal, { short: true }) : 'Hari ke-' + d}</span>
+          <span class="rn-li-read">${BY[d] ? T.esc(BY[d].bacaan) : ''}</span></button>`).join('')}</div>`;
+    } else if (rec) {
+      body = `<article class="rn" style="--rn-size:${f}px">${T.rn.format(rec.teks)}</article>`;
+    } else if (READER.err) {
+      body = `<div class="rn-msg"><p>Belum bisa memuat renungan. Cek internet lalu coba lagi.</p>
+        <button class="btn-primary" data-r="retry">Coba lagi</button></div>`;
+    } else {
+      body = `<div class="rn-skel"><div class="sk-line"></div><div class="sk-line"></div><div class="sk-line short"></div>
+        <div class="sk-line"></div><div class="sk-line"></div><div class="sk-line short"></div></div>`;
+    }
+    READER.el.innerHTML = `
+      <header class="reader-top">
+        <button class="icon-btn ghost" data-r="close" aria-label="Tutup">×</button>
+        <button class="reader-title" data-r="list" aria-expanded="${READER.list}">
+          <span class="rt-date">${s.tanggal ? T.fmtTanggal(s.tanggal) : ''}</span>
+          <b>${T.esc(s.bacaan || 'Renungan')} <span class="rt-chev" aria-hidden="true">${READER.list ? '▴' : '▾'}</span></b></button>
+        <div class="reader-font" role="group" aria-label="Ukuran huruf">
+          <button data-r="smaller" aria-label="Perkecil huruf" ${f <= RN_FONTS[0] ? 'disabled' : ''}>A−</button>
+          <button data-r="bigger" aria-label="Perbesar huruf" ${f >= RN_FONTS[RN_FONTS.length - 1] ? 'disabled' : ''}>A+</button></div>
+      </header>
+      <div class="reader-body">${body}</div>
+      <footer class="reader-bottom">
+        <button data-r="go" data-h="${nb.prev || ''}" ${nb.prev ? '' : 'disabled'}>‹ Sebelumnya</button>
+        <button data-r="copy" ${rec ? '' : 'disabled'}>Salin</button>
+        <button data-r="go" data-h="${nb.next || ''}" ${nb.next ? '' : 'disabled'}>Berikutnya ›</button>
+      </footer>`;
+  }
+
+  async function onReaderClick(e) {
+    const b = e.target.closest('[data-r]'); if (!b || !READER) return;
+    switch (b.dataset.r) {
+      case 'close': return rnClose();
+      case 'list': READER.list = !READER.list; return rnRender();
+      case 'go': {
+        const h = +b.dataset.h; if (!h) return;
+        READER.h = h; READER.list = false; READER.err = null;
+        rnRender(); READER.el.querySelector('.reader-body').scrollTop = 0;
+        return rnLoad(h);
+      }
+      case 'retry': READER.err = null; rnRender(); return rnLoad(READER.h);
+      case 'smaller': case 'bigger': {
+        const i = RN_FONTS.indexOf(rnFont()) + (b.dataset.r === 'bigger' ? 1 : -1);
+        T.store.set('tbf_rn_font', String(RN_FONTS[Math.max(0, Math.min(RN_FONTS.length - 1, i))]));
+        const art = READER.el.querySelector('.rn'); if (art) art.style.setProperty('--rn-size', rnFont() + 'px');
+        READER.el.querySelector('[data-r=smaller]').disabled = rnFont() <= RN_FONTS[0];
+        READER.el.querySelector('[data-r=bigger]').disabled = rnFont() >= RN_FONTS[RN_FONTS.length - 1];
+        return;
+      }
+      case 'copy': {
+        const rec = rnCached(READER.h); if (!rec) return;
+        return T.toast((await T.copyText(rec.teks)) ? 'Renungan disalin' : 'Gagal menyalin');
+      }
+    }
   }
 
   /* ============ kirim ke grup WA (paling bawah) ============ */
@@ -626,6 +800,7 @@
       case 'board': SHOW_BOARD = !SHOW_BOARD; return render();
       case 'tip-off': T.store.set('tbf_tip_off', '1'); return render();
       case 'reload': return boot();
+      case 'rn-open': return rnOpen(+a.dataset.h);
       case 'go-wa': { const c = document.getElementById('wa-card'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
       case 'wa-copy': {
         const t = waText(); if (!t) return T.toast('Pilih bacaan dulu');
@@ -657,7 +832,12 @@
   $app.addEventListener('submit', onSubmit);
   $bar.addEventListener('click', onClick);
   $acct.addEventListener('click', openMenu);
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (READER) rnClose(); else closeMenu(); } });
+  window.addEventListener('popstate', () => { if (READER) rnClose(true); });
+  $app.addEventListener('keydown', e => {
+    const c = e.target.closest('.rn-card[data-act]');
+    if (c && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); rnOpen(+c.dataset.h); }
+  });
   window.addEventListener('resize', positionMenu);
   window.addEventListener('hashchange', () => { closeMenu(); boot(); });
   // kembali ke aplikasi setelah lama ditinggal → ambil data terbaru

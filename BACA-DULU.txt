@@ -1,10 +1,10 @@
-PAKET UPDATE VERSI 4.1: Tekun Baca Firman
-==========================================
-Upload ke GitHub (menimpa file lama):
-  index.html
-  admin.html
-  folder assets/   (app.js, common.js, admin.js, style.css, ikon)
-
-TIDAK perlu diubah:
-  config.js           -> JANGAN ditimpa (isinya URL Apps Script Anda)
-  apps-script/Code.gs -> sama dengan versi 3
+PAKET UPDATE VERSI 5 (renungan harian): Tekun Baca Firman
+==========================================================
+1) Google Sheet / Apps Script:
+   apps-script/Code.gs  -> tempel di Apps Script, Save, jalankan setupAwal,
+                           isi "PIN Renungan" di sheet Pengaturan,
+                           Deploy -> Manage deployments -> New version.
+2) GitHub (timpa file lama):
+   index.html, admin.html,
+   assets/app.js, assets/admin.js, assets/common.js, assets/style.css
+JANGAN timpa config.js.

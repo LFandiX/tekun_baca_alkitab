@@ -48,6 +48,14 @@
     const d = parseYmd(s); const h = NAMA_HARI[d.getUTCDay()];
     return (opt && opt.short ? h.slice(0, 3) : h) + ', ' + d.getUTCDate() + ' ' + BULAN[d.getUTCMonth()];
   }
+  function dayName(s) { return NAMA_HARI[parseYmd(s).getUTCDay()]; }
+  /** Jadwal ringkas dari server [hari, tanggal, bacaan, singkat, pasal] → objek lengkap */
+  function expandSch(data) {
+    if (data && data.sch && !data.schedule) {
+      data.schedule = data.sch.map(a => ({ hari: a[0], tanggal: a[1], namaHari: dayName(a[1]), bacaan: a[2], singkat: a[3], pasal: a[4] }));
+    }
+    return data;
+  }
   function fmtShort(s) { const d = parseYmd(s); return d.getUTCDate() + '/' + (d.getUTCMonth() + 1); }
   function relTime(iso) {
     if (!iso) return 'belum pernah';
@@ -135,7 +143,7 @@
     if (!el) return;
     el.innerHTML = '<span>' + esc(msg) + '</span>' + (opt.action ? '<button type="button">' + esc(opt.action) + '</button>' : '');
     if (opt.action) el.querySelector('button').onclick = () => { el.classList.remove('show'); opt.onAction(); };
-    el.classList.toggle('lift', !!document.querySelector('.actionbar.show, .bottomnav:not([hidden])'));
+    el.classList.toggle('lift', !!document.querySelector('.actionbar.show, .bottomnav:not([hidden]), .reader'));
     el.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => el.classList.remove('show'), opt.ms || (opt.action ? 6000 : 2600));
@@ -194,6 +202,97 @@
   }
 
   /* ============================================================
+   *  RENUNGAN: teks WhatsApp → tampilan rapi
+   *  *tebal*  _miring_  ~coret~  ```kode```, judul pasal, kotak Renungan & Pokok Doa
+   * ============================================================ */
+  const BULAN_PANJANG = ['januari', 'februari', 'maret', 'april', 'mei', 'juni', 'juli', 'agustus', 'september', 'oktober', 'november', 'desember'];
+  const stripMarks = t => String(t).replace(/[*_~`]/g, '');
+  const DATE_RE = /(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/;
+  const GUIDE_RE = /^guidelines?\b\s*:?\s*(.*)$/i;
+  const LABEL_RE = /^(renungan|refleksi|aplikasi|pertanyaan(?: renungan)?|pokok doa|pokok-pokok doa|doa|ayat hafalan)\s*:?\s*$/i;
+  const LABEL_INLINE_RE = /^(renungan|refleksi|aplikasi|pokok doa|doa|ayat hafalan)\s*:\s*(.+)$/i;
+  const CLOSING_RE = /^(selamat (menikmati|membaca|bersaat teduh|bersekutu)|tuhan yesus memberkati|gbu\b|soli deo gloria)/i;
+
+  function rnDateOf(line) {
+    const m = stripMarks(line).match(DATE_RE);
+    if (!m) return null;
+    const mi = BULAN_PANJANG.indexOf(m[2].toLowerCase());
+    return mi < 0 ? null : m[3] + '-' + String(mi + 1).padStart(2, '0') + '-' + String(m[1]).padStart(2, '0');
+  }
+  /** Tanggal di baris-baris awal, mis. "*Jumat, 20 November 2026*" → "2026-11-20" */
+  function rnParseDate(teks) {
+    const lines = String(teks || '').split(/\r?\n/).slice(0, 6);
+    for (const l of lines) { const d = rnDateOf(l); if (d) return d; }
+    return null;
+  }
+  /** "*Guidelines: Kejadian 45–46*" → "Kejadian 45–46" */
+  function rnParseGuide(teks) {
+    const lines = String(teks || '').split(/\r?\n/).slice(0, 8);
+    for (const l of lines) { const m = stripMarks(l).trim().match(GUIDE_RE); if (m && m[1]) return m[1].trim(); }
+    return null;
+  }
+  const rnNorm = t => String(t || '').toLowerCase().replace(/[‐-―−]/g, '-').replace(/\s*-\s*/g, '-').replace(/\s+/g, ' ').trim();
+
+  /** buang baris tanggal & "Guidelines" di awal (sudah tampil di judul) */
+  function rnBodyLines(teks) {
+    const lines = String(teks || '').replace(/^​/, '').replace(/\r\n?/g, '\n').split('\n');
+    let i = 0, removed = 0;
+    while (i < lines.length && removed < 4) {
+      const t = stripMarks(lines[i]).trim();
+      if (!t) { i++; continue; }
+      if ((rnDateOf(t) && t.length < 60) || GUIDE_RE.test(t)) { i++; removed++; continue; }
+      break;
+    }
+    return lines.slice(i);
+  }
+
+  function rnInline(escaped) {
+    return escaped
+      .replace(/```([^`]+)```/g, '<code>$1</code>')
+      .replace(/(^|[^\w*])\*(?!\s)([^*\n]*?[^\s*])\*(?!\w)/g, '$1<strong>$2</strong>')
+      .replace(/(^|[^\w_])_(?!\s)([^_\n]*?[^\s_])_(?!\w)/g, '$1<em>$2</em>')
+      .replace(/(^|[^\w~])~(?!\s)([^~\n]*?[^\s~])~(?!\w)/g, '$1<s>$2</s>');
+  }
+  const capFirst = t => t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
+
+  /** Teks renungan → HTML aman (semua teks di-escape dulu) */
+  function rnFormat(teks) {
+    const out = []; let para = []; let box = null;
+    const target = () => (box ? box.parts : out);
+    const flush = () => { if (para.length) { target().push('<p>' + para.join('<br>') + '</p>'); para = []; } };
+    const closeBox = () => { flush(); if (box) { out.push('<div class="rn-box rn-' + box.type + '">' + box.parts.join('') + '</div>'); box = null; } };
+    rnBodyLines(teks).forEach(raw => {
+      const t = raw.trim();
+      const plain = stripMarks(t).trim();
+      if (!t) { flush(); return; }
+      if (CLOSING_RE.test(plain)) { closeBox(); out.push('<p class="rn-closing">' + rnInline(esc(t)) + '</p>'); return; }
+      const lb = plain.match(LABEL_RE), li = !lb && plain.match(LABEL_INLINE_RE);
+      if (lb || li) {
+        closeBox();
+        const name = (lb || li)[1];
+        box = { type: /doa/i.test(name) ? 'doa' : 'refl', parts: ['<h4 class="rn-label">' + esc(capFirst(name)) + '</h4>'] };
+        if (li) para.push(rnInline(esc(li[2])));
+        return;
+      }
+      if (/^\*[^*]+\*$/.test(t) && plain.length <= 60) { closeBox(); out.push('<h3 class="rn-h">' + esc(plain) + '</h3>'); return; }
+      para.push(rnInline(esc(t)));
+    });
+    closeBox();
+    return out.join('');
+  }
+
+  /** Kalimat pembuka untuk kartu ringkas */
+  function rnPreview(teks, max) {
+    max = max || 150;
+    for (const raw of rnBodyLines(teks)) {
+      const t = raw.trim(); const plain = stripMarks(t).trim();
+      if (!plain || /^\*[^*]+\*$/.test(t) || LABEL_RE.test(plain)) continue;
+      return plain.length > max ? plain.slice(0, max).replace(/\s+\S*$/, '') + '…' : plain;
+    }
+    return '';
+  }
+
+  /* ============================================================
    *  MODE DEMO — meniru perilaku Code.gs, tanpa server
    * ============================================================ */
   const KITAB = [
@@ -241,6 +340,7 @@
   const Demo = (function () {
     const KEY = 'tbf_demo_v2';
     const PIN = '1234';
+    const PIN_PENDETA = 'pendeta-demo';
     const NAMA_KELOMPOK = 'TEKUN BACA FIRMAN';
     const NAMES = ['Agustina', 'Ahong', 'Andang', 'Andre', 'Andy', 'Arini', 'Bryan', 'Clara', 'Dedi', 'Dedi SS',
       'Dewi H', 'Dharmawan', 'Dimas', 'Eben', 'Elfrida', 'Enjel', 'Erin', 'Erwis', 'Fandi', 'Fenny', 'Fian', 'Geta'];
@@ -309,6 +409,43 @@
       return sorted(doneMap()[nama]);
     }
     const wait = () => new Promise(r => setTimeout(r, (window.__tbfDemoDelay || 0) + 350 + Math.random() * 450));
+
+    /* --- renungan (demo) --- */
+    const BLN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    function contohRenungan(s) {
+      const d = parseYmd(s.tanggal);
+      const tgl = `${NAMA_HARI[d.getUTCDay()]}, ${d.getUTCDate()} ${BLN[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+      const m = s.bacaan.match(/^(.*\S)\s+(\d+)(?:-(\d+))?$/);
+      const pasal = []; if (m) for (let c = +m[2]; c <= +(m[3] || m[2]); c++) pasal.push(m[1] + ' ' + c);
+      return `*${tgl}*\n*Guidelines: ${s.bacaan.replace('-', '–')}*\n\n\n` + pasal.map(p =>
+        `*${p}*\nIni contoh renungan untuk *mode demo*. Di aplikasi asli, bagian ini berisi renungan dari pendeta untuk _${p}_.\n\n` +
+        `Renungan:\n1. Apa yang Tuhan ajarkan melalui pasal ini?\n2. Bagaimana kita menerapkannya hari ini?`).join('\n\n\n') +
+        `\n\n\n*Pokok Doa:*\n1. Berdoa agar kita tekun membaca Firman setiap hari.\n\n\nSelamat menikmati FirmanNya 🙏`;
+    }
+    const ver = () => Math.floor(Date.now() / 60000).toString(36);
+    function rnStore() {
+      const st = load();
+      if (!st.rn) {
+        const c = curDay(todayStr()); st.rn = {};
+        [c, c - 1, c - 2, c - 4, c + 1].forEach(h => {
+          const s = SCHEDULE[h - 1]; if (!s) return;
+          const real = window.TBF_DEMO_RN && window.TBF_DEMO_RN[s.bacaan];
+          st.rn[h] = { teks: real || contohRenungan(s), v: ver(), oleh: 'Pendeta', t: new Date().toISOString() };
+        });
+        save();
+      }
+      return st.rn;
+    }
+    const rnRec = h => { const r = rnStore()[h]; return r ? { hari: +h, teks: r.teks, v: r.v } : null; };
+    const rnPub = c => Object.keys(rnStore()).map(Number).filter(h => h <= c).sort((a, b) => a - b).map(h => [h, rnStore()[h].v]);
+    const rnMeta = () => Object.keys(rnStore()).map(Number).sort((a, b) => a - b)
+      .map(h => ({ hari: h, v: rnStore()[h].v, oleh: rnStore()[h].oleh, t: rnStore()[h].t }));
+    function role(pin) {
+      const p = String(pin || '').trim();
+      if (p === PIN) return 'admin';
+      if (p === PIN_PENDETA) return 'pendeta';
+      throw new Error('PIN_ADMIN_SALAH');
+    }
     const clone = o => JSON.parse(JSON.stringify(o));
 
     return {
@@ -324,7 +461,15 @@
             ok: true, settings: settings(), me: { nama: me }, done: sorted(dm[me]),
             schedule: SCHEDULE.filter(s => s.hari <= c + 7), today, currentDay: c,
             board: NAMES.map(n => { const s = dm[n] || new Set(); return { nama: n, belum: firstUnread(s, c), tertinggal: countUnread(s, c) }; }),
+            rnIdx: rnPub(c), renungan: rnStore()[c] ? rnRec(c) : null,
           });
+        }
+        if (p.action === 'renungan') {
+          if (!byKode(p.k)) throw new Error('LINK_TIDAK_VALID');
+          const items = {};
+          String(p.hari || '').split(',').map(Number).filter(h => h >= 1 && h <= c).slice(0, 3)
+            .forEach(h => { items[h] = rnRec(h); });
+          return clone({ ok: true, items });
         }
         if (p.action === 'admin') throw new Error('PERBARUI_WEB');
         throw new Error('Aksi tidak dikenal');
@@ -334,7 +479,8 @@
         {
           const dm = doneMap(); const out = {
             ok: true, settings: settings(), members: NAMES.map(n => ({ nama: n, kode: load().kode[n] })),
-            schedule: SCHEDULE.filter(s => s.hari <= Math.max(c, 1)), today, currentDay: c, progress: {}, terakhir: {},
+            schedule: SCHEDULE.filter(s => s.hari <= Math.max(c, 1) + 30), today, currentDay: c, progress: {}, terakhir: {},
+            role: 'admin', rnMeta: rnMeta(),
           };
           NAMES.forEach(n => {
             out.progress[n] = sorted(dm[n]);
@@ -346,7 +492,26 @@
       },
       async post(b) {
         await wait();
-        if (b.action === 'admin') { checkPin(b.pin); return this.adminData(); }
+        if (b.action === 'admin') {
+          if (role(b.pin) === 'pendeta') {
+            const c = curDay(todayStr());
+            return clone({ ok: true, role: 'pendeta', settings: settings(), schedule: SCHEDULE.filter(s => s.hari <= c + 30),
+              today: todayStr(), currentDay: c, rnMeta: rnMeta() });
+          }
+          return this.adminData();
+        }
+        if (b.action === 'rnGet') { role(b.pin); return clone({ ok: true, item: rnRec(b.hari) }); }
+        if (b.action === 'rnSave') {
+          const who = role(b.pin); const h = +b.hari; const c = curDay(todayStr());
+          if (!SCHEDULE[h - 1]) throw new Error('Hari bacaan tidak ditemukan di jadwal');
+          if (h > c + 30) throw new Error('Renungan hanya bisa diupload s/d 30 hari bacaan ke depan');
+          const teks = String(b.teks || '').replace(/\r\n?/g, '\n').trim();
+          if (!teks) throw new Error('Teks renungan kosong');
+          rnStore()[h] = { teks, v: ver() + Math.random().toString(36).slice(2, 4), oleh: who === 'admin' ? 'Admin' : 'Pendeta', t: new Date().toISOString() };
+          save();
+          return clone({ ok: true, item: rnRec(h), rnMeta: rnMeta() });
+        }
+        if (b.action === 'rnDelete') { role(b.pin); delete rnStore()[+b.hari]; save(); return clone({ ok: true, rnMeta: rnMeta() }); }
         if (b.action === 'lapor') {
           const me = byKode(b.k); if (!me) throw new Error('LINK_TIDAK_VALID');
           return { ok: true, done: write(me, b.hari, b.status !== false) };
@@ -376,9 +541,10 @@
   })();
 
   window.TBF = {
-    IS_DEMO, store, esc, getToken, personalLink, todayStr, fmtTanggal, fmtShort, relTime,
+    IS_DEMO, store, esc, getToken, dayName, expandSch, personalLink, todayStr, fmtTanggal, fmtShort, relTime,
     indexSchedule, firstUnread, countUnread, countDone, pasalDone, buildRecap,
     waUrl, waTarget, apiGet, apiPost, cacheGet, cacheSet, cacheDel, syncing, toast, openModal, copyText, haptic, demoBanner,
     EMOJI_SUDAH, EMOJI_BELUM, demo: Demo,
+    rn: { format: rnFormat, preview: rnPreview, parseDate: rnParseDate, parseGuide: rnParseGuide, norm: rnNorm },
   };
 })();
