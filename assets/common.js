@@ -257,30 +257,91 @@
   }
   const capFirst = t => t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
 
+  /* --- blok desain (1 baris, simbol di awal & akhir baris) ---
+   *  %teks%  poin bernomor        $teks$  ayat kunci          > teks  kutipan ayat
+   *  !teks!  kotak penting        &teks&  "Lakukan hari ini"   ---     garis pemisah */
+  const BLOK = [
+    ['poin', /^%(?!\s)(.+?)%$/], ['ayat', /^\$(?!\s)(.+?)\$$/], ['penting', /^!(?!\s)(.+?)!$/],
+    ['aksi', /^&(?!\s)(.+?)&$/], ['kutip', /^>\s?(.*)$/], ['garis', /^(?:-{3,}|={3,}|—{2,})$/],
+  ];
+  function rnBlok(t) {
+    for (const [k, re] of BLOK) { const m = t.match(re); if (m) return { k, isi: (m[1] || '').trim() }; }
+    return null;
+  }
+  /** "Yang kamu rencanakan ... (Kej 50:20)" → isi + sumber */
+  const splitRef = t => { const m = t.match(/^(.*\S)\s*[(–—-]\s*([1-3]?\s?[A-Za-z][\w.\s]*\d+[:.]\d+[\d\-–,\s]*)\)?$/); return m ? [m[1].replace(/[\s–—-]+$/, ''), m[2].trim()] : [t, '']; };
+
   /** Teks renungan → HTML aman (semua teks di-escape dulu) */
   function rnFormat(teks) {
-    const out = []; let para = []; let box = null;
+    const out = []; let para = []; let box = null; let grp = null; let ptN = 0;
     const target = () => (box ? box.parts : out);
-    const flush = () => { if (para.length) { target().push('<p>' + para.join('<br>') + '</p>'); para = []; } };
-    const closeBox = () => { flush(); if (box) { out.push('<div class="rn-box rn-' + box.type + '">' + box.parts.join('') + '</div>'); box = null; } };
+    const flushGrp = () => {
+      if (!grp) return;
+      if (grp.k === 'kutip') target().push('<blockquote class="rn-kutip">' + grp.items.map(x => (x.ref ? '<cite>' + x.h + '</cite>' : '<p>' + x.h + '</p>')).join('') + '</blockquote>');
+      else target().push('<div class="rn-aksi"><p class="rn-aksi-h">Lakukan hari ini</p>' +
+        grp.items.map(x => '<label class="rn-aksi-i"><input type="checkbox"><span>' + x.h + '</span></label>').join('') + '</div>');
+      grp = null;
+    };
+    const flushPara = () => { if (para.length) { target().push('<p>' + para.join('<br>') + '</p>'); para = []; } };
+    const flush = () => { flushGrp(); flushPara(); };
+    const closeBox = () => { flush(); if (box) { out.push('<div class="rn-box rn-' + box.type + '">' + box.parts.join('') + '</div>'); box = null; ptN = 0; } };
+    const KELUAR = { ayat: 1, penting: 1, aksi: 1, garis: 1 };   // blok ini tidak dimasukkan ke kotak Renungan / Pokok Doa
     rnBodyLines(teks).forEach(raw => {
       const t = raw.trim();
       const plain = stripMarks(t).trim();
-      if (!t) { flush(); return; }
+      if (!t) { if (grp && grp.k === 'kutip') flushGrp(); flushPara(); return; }   // daftar "Lakukan" boleh diselingi baris kosong
+      const b = rnBlok(t);
+      if (b) {
+        if (KELUAR[b.k] && box && !(grp && grp.k === b.k)) closeBox();
+        if (b.k === 'kutip' || b.k === 'aksi') {
+          flushPara();
+          if (grp && grp.k !== b.k) flushGrp();
+          if (!grp) grp = { k: b.k, items: [] };
+          if (b.isi) grp.items.push({ h: rnInline(esc(b.isi.replace(/^[\u2014\u2013-]\s*(?=\S)/, m => (b.k === 'kutip' ? '' : m)))), ref: b.k === 'kutip' && /^[\u2014\u2013-]\s*\S/.test(b.isi) });
+          return;
+        }
+        flush();
+        if (b.k === 'garis') { target().push('<div class="rn-garis" role="separator"><i></i><i></i><i></i></div>'); return; }
+        if (b.k === 'poin') { ptN++; target().push('<div class="rn-pt"><span class="rn-pt-n" aria-hidden="true">' + ptN + '</span><p>' + rnInline(esc(b.isi)) + '</p></div>'); return; }
+        if (b.k === 'penting') { target().push('<div class="rn-penting"><span class="rn-penting-i" aria-hidden="true">!</span><p>' + rnInline(esc(b.isi)) + '</p></div>'); return; }
+        if (b.k === 'ayat') {
+          const [isi, ref] = splitRef(b.isi);
+          target().push('<figure class="rn-ayat"><p class="rn-ayat-h">Ayat kunci</p><blockquote>' + rnInline(esc(isi)) + '</blockquote>' +
+            (ref ? '<figcaption>' + esc(ref) + '</figcaption>' : '') + '</figure>');
+          return;
+        }
+      }
+      flushGrp();
       if (CLOSING_RE.test(plain)) { closeBox(); out.push('<p class="rn-closing">' + rnInline(esc(t)) + '</p>'); return; }
       const lb = plain.match(LABEL_RE), li = !lb && plain.match(LABEL_INLINE_RE);
       if (lb || li) {
         closeBox();
         const name = (lb || li)[1];
-        box = { type: /doa/i.test(name) ? 'doa' : 'refl', parts: ['<h4 class="rn-label">' + esc(capFirst(name)) + '</h4>'] };
+        box = { type: /doa/i.test(name) ? 'doa' : 'refl', parts: ['<h4 class="rn-label">' + esc(capFirst(name)) + '</h4>'] }; ptN = 0;
         if (li) para.push(rnInline(esc(li[2])));
         return;
       }
-      if (/^\*[^*]+\*$/.test(t) && plain.length <= 60) { closeBox(); out.push('<h3 class="rn-h">' + esc(plain) + '</h3>'); return; }
+      if (/^\*[^*]+\*$/.test(t) && plain.length <= 60) { closeBox(); ptN = 0; out.push('<h3 class="rn-h">' + esc(plain) + '</h3>'); return; }
       para.push(rnInline(esc(t)));
     });
     closeBox();
     return out.join('');
+  }
+
+  /** Versi untuk dikirim ke grup WA: simbol desain diganti tanda yang rapi di WhatsApp */
+  function rnToWa(teks) {
+    let n = 0;
+    return String(teks || '').replace(/\r\n?/g, '\n').split('\n').map(raw => {
+      const t = raw.trim();
+      if (/^\*[^*]+\*$/.test(t)) n = 0;
+      const b = t && rnBlok(t);
+      if (!b || b.k === 'kutip') return raw;
+      if (b.k === 'poin') { n++; return (n <= 9 ? n + '\uFE0F\u20E3' : n + '.') + ' ' + b.isi; }
+      if (b.k === 'ayat') return '📖 _' + b.isi + '_';
+      if (b.k === 'penting') return '📌 *' + b.isi + '*';
+      if (b.k === 'aksi') return '☑️ ' + b.isi;
+      return '〰️〰️〰️';
+    }).join('\n');
   }
 
   /** Kalimat pembuka untuk kartu ringkas */
@@ -289,7 +350,9 @@
     for (const raw of rnBodyLines(teks)) {
       const t = raw.trim(); const plain = stripMarks(t).trim();
       if (!plain || /^\*[^*]+\*$/.test(t) || LABEL_RE.test(plain)) continue;
-      return plain.length > max ? plain.slice(0, max).replace(/\s+\S*$/, '') + '…' : plain;
+      const b = rnBlok(t); if (b && (b.k === 'garis' || !b.isi)) continue;
+      const pl = b ? stripMarks(b.isi) : plain;
+      return pl.length > max ? pl.slice(0, max).replace(/\s+\S*$/, '') + '…' : pl;
     }
     return '';
   }
@@ -435,7 +498,9 @@
       });
       return `*${tgl}*\n*Guidelines: ${s.bacaan.replace(/-/g, '–')}*\n\n\n` + pasal.map(p =>
         `*${p}*\nIni contoh renungan untuk *mode demo*. Di aplikasi asli, bagian ini berisi renungan dari pendeta untuk _${p}_.\n\n` +
-        `Renungan:\n1. Apa yang Tuhan ajarkan melalui pasal ini?\n2. Bagaimana kita menerapkannya hari ini?`).join('\n\n\n') +
+        `%Contoh poin pertama dari ${p}%\n%Contoh poin kedua%\n\n` +
+        `Renungan:\n1. Apa yang Tuhan ajarkan melalui pasal ini?\n2. Bagaimana kita menerapkannya hari ini?`).join('\n\n\n---\n\n') +
+        `\n\n$Firman-Mu itu pelita bagi kakiku dan terang bagi jalanku. (Mzm 119:105)$\n\n&Baca ulang satu ayat yang paling menegur hari ini&` +
         `\n\n\n*Pokok Doa:*\n1. Berdoa agar kita tekun membaca Firman setiap hari.\n\n\nSelamat menikmati FirmanNya 🙏`;
     }
     const ver = () => Math.floor(Date.now() / 60000).toString(36);
@@ -560,6 +625,6 @@
     indexSchedule, firstUnread, countUnread, countDone, pasalDone, buildRecap,
     waUrl, waTarget, apiGet, apiPost, cacheGet, cacheSet, cacheDel, syncing, toast, openModal, copyText, haptic, demoBanner,
     EMOJI_SUDAH, EMOJI_BELUM, demo: Demo,
-    rn: { format: rnFormat, preview: rnPreview, parseDate: rnParseDate, parseGuide: rnParseGuide, norm: rnNorm },
+    rn: { format: rnFormat, toWa: rnToWa, preview: rnPreview, parseDate: rnParseDate, parseGuide: rnParseGuide, norm: rnNorm },
   };
 })();

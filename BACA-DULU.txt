@@ -1,11 +1,12 @@
-UPDATE v5.2: jadwal tepat 2 pasal per hari
+UPDATE v6.1 = gabungan v5.2 (jadwal tepat 2 pasal) + v6 (tampilan admin baru) + desain renungan
 
-File di paket ini:
+File:
   index.html, admin.html, README.md
-  assets/app.js, assets/admin.js, assets/common.js
-  apps-script/Code.gs
+  assets/app.js, assets/admin.js, assets/admin.css (BARU), assets/common.js, assets/style.css
+  apps-script/Code.gs (versi 3.4)
 
-JANGAN menimpa config.js (berisi URL Apps Script Anda). config.js tidak ada di paket ini.
+JANGAN menimpa config.js (tidak ada di paket ini).
 
-Setelah update, buka Google Sheet, refresh, lalu pilih menu
-  📖 Tekun Baca → Ratakan jadwal ke depan (tepat 2 pasal/hari)
+Apps Script: kalau /exec Anda belum menampilkan "versi":3.4, tempel Code.gs, Save,
+Deploy > Manage deployments > edit > New version > Deploy, lalu di Google Sheet
+refresh dan jalankan menu 📖 Tekun Baca > Ratakan jadwal ke depan.

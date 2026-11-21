@@ -100,6 +100,33 @@ Google Sheets            (sheet: Pengaturan, Anggota, Jadwal, Laporan)
 
 ---
 
+## Update ke versi 6.1 (tampilan admin baru + desain renungan)
+
+- Checklist dan Rekap digabung jadi tab **Hari ini**. Di laptop, daftar anggota ada di kiri dan teks rekap WA di kanan; di HP, tombol **Kirim rekap** selalu ada di bawah.
+- Menu di samping kiri (laptop). Bisa diciutkan dengan tombol **Ciutkan menu** di bawah, dan pilihannya diingat.
+- Kotak kecil 7 bacaan terakhir di setiap nama, dan kotak "Perlu diingatkan" untuk yang tertinggal 3 bacaan atau lebih.
+- Pita perjalanan Alkitab: posisi bacaan dari Kejadian sampai Wahyu.
+- Renungan di laptop: daftar hari, kotak teks, dan pratinjau seperti di HP anggota. Di HP: deretan tanggal yang tinggal diketuk.
+
+- **Desain renungan.** Tulis simbol di awal dan akhir baris (simbol di tengah kalimat tidak berpengaruh):
+
+  | Tulis | Hasil |
+  |---|---|
+  | `*Kejadian 1*` | Judul pasal |
+  | `%Allah setia%` | Poin bernomor (1, 2, 3 … otomatis) |
+  | `$Firman-Mu pelita bagi kakiku (Mzm 119:105)$` | Kartu ayat kunci |
+  | `> Jadilah terang` lalu `> — Kejadian 1:3` | Kutipan ayat + sumbernya |
+  | `!Jangan lupa berdoa!` | Kotak penting |
+  | `&Baca Mazmur 8&` | Daftar "Lakukan hari ini" yang bisa dicentang anggota |
+  | `---` | Garis pemisah |
+
+  Di halaman admin ada tombol untuk menyisipkan simbol ini, tombol **Panduan**, dan **Salin versi WhatsApp**
+  (simbol diganti 1️⃣ 📖 📌 ☑️ supaya rapi saat dikirim ke grup).
+
+File 6.1 (gabungan 5.2 + 6 + desain renungan): `index.html`, `admin.html`, `assets/app.js`, `assets/admin.js`,
+`assets/admin.css` (baru), `assets/common.js`, `assets/style.css`, `apps-script/Code.gs`.
+Kalau update 5.2 belum dipasang, tempel juga `Code.gs` ke Apps Script (versi 3.4) lalu jalankan menu **Ratakan jadwal ke depan**.
+
 ## Update ke versi 5.2 (jadwal tepat 2 pasal per hari)
 
 Kitab yang jumlah pasalnya ganjil dulu membuat hari 3 pasal (mis. Imamat 25-27).

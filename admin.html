@@ -5,36 +5,62 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Admin · Tekun Baca Firman</title>
   <meta name="robots" content="noindex">
-  <meta name="theme-color" content="#2d5a4c">
+  <meta name="theme-color" content="#1e3d33">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Admin Baca">
   <link rel="icon" type="image/png" href="assets/icon-192.png">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-  <link rel="stylesheet" href="assets/style.css?v=5.2">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,600&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap">
+  <link rel="stylesheet" href="assets/style.css?v=6.1">
+  <link rel="stylesheet" href="assets/admin.css?v=6.1">
+  <script>try { if (localStorage.getItem('tbf_side_mini') === '1') document.documentElement.classList.add('side-mini'); } catch (e) {}</script>
 </head>
 <body class="admin">
   <div id="demo-banner" class="demo-banner" hidden></div>
-  <header class="topbar">
-    <div class="wrap">
-      <div class="brand"><img class="brand-mark" src="assets/icon-192.png" alt=""><span id="group-name">Tekun Baca Firman</span><span class="tag">Admin</span></div>
-      <div id="admin-tools" class="top-tools" hidden>
-        <span id="sync" class="sync" hidden aria-live="polite"><i aria-hidden="true"></i>Memperbarui</span>
-        <button id="btn-refresh" class="icon-btn ghost" type="button" aria-label="Muat ulang data" title="Muat ulang">
-          <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5"/></svg></button>
-        <button id="btn-logout" class="icon-btn ghost" type="button" aria-label="Keluar" title="Keluar">
-          <svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 16l-4-4 4-4M6 12h10"/></svg></button>
+  <div class="adm">
+    <aside id="side" class="side" hidden aria-label="Menu admin">
+      <div class="side-brand">
+        <img class="brand-mark" src="assets/icon-192.png" alt="">
+        <div class="side-label"><span id="side-name">Tekun Baca Firman</span><small id="side-role">Admin</small></div>
       </div>
+      <nav id="side-nav" class="side-nav"></nav>
+      <div class="side-foot">
+        <a class="side-link" href="./" title="Halaman anggota">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5M6.5 10v9h11v-9"/></svg><span class="side-label">Halaman anggota</span></a>
+        <button class="side-link" type="button" data-act="logout" title="Keluar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 16l-4-4 4-4M6 12h10"/></svg><span class="side-label">Keluar</span></button>
+        <button class="side-link side-toggle" type="button" data-act="side-toggle" aria-expanded="true" title="Ciutkan menu">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M9.5 4.5v15M15.5 10l-2 2 2 2"/></svg><span class="side-label">Ciutkan menu</span></button>
+      </div>
+    </aside>
+
+    <div class="adm-main">
+      <header class="topbar">
+        <div class="wrap">
+          <div class="brand"><img class="brand-mark" src="assets/icon-192.png" alt=""><span id="group-name">Tekun Baca Firman</span><span class="tag">Admin</span></div>
+          <div id="admin-tools" class="top-tools" hidden>
+            <span id="sync" class="sync" hidden aria-live="polite"><i aria-hidden="true"></i><span>Memperbarui</span></span>
+            <span id="updated" class="updated" aria-live="polite"></span>
+            <button id="btn-refresh" class="icon-btn ghost" type="button" aria-label="Muat ulang data" title="Muat ulang">
+              <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5"/></svg></button>
+            <button id="btn-logout" class="icon-btn ghost" type="button" data-act="logout" aria-label="Keluar" title="Keluar">
+              <svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 16l-4-4 4-4M6 12h10"/></svg></button>
+          </div>
+        </div>
+      </header>
+      <div id="daybar" class="dayhead" hidden></div>
+      <main id="app" class="wrap"><div class="loading">Memuat…</div></main>
     </div>
-  </header>
-  <div id="daybar" class="daybar" hidden></div>
+  </div>
 
-  <main id="app" class="wrap"><div class="loading">Memuat…</div></main>
-
+  <div id="rbar" class="rbar" hidden></div>
   <nav id="bottomnav" class="bottomnav" hidden aria-label="Menu admin"></nav>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="config.js?v=5.2"></script>
-  <script src="assets/common.js?v=5.2"></script>
-  <script src="assets/admin.js?v=5.2"></script>
+  <script src="config.js?v=6.1"></script>
+  <script src="assets/common.js?v=6.1"></script>
+  <script src="assets/admin.js?v=6.1"></script>
 </body>
 </html>

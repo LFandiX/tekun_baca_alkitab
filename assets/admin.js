@@ -14,26 +14,42 @@
   };
 
   const ICON = {
-    rekap: '<svg viewBox="0 0 24 24"><path d="M8 4h8M8 4a2 2 0 0 0-2 2v0H5a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1a2 2 0 0 0-2-2M8 4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2M8 11h8M8 15h5"/></svg>',
-    checklist: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m8 12.5 2.8 2.8L16.5 9"/></svg>',
-    progres: '<svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
-    renungan: '<svg viewBox="0 0 24 24"><path d="M12 6.5C10.4 5 8.2 4.3 4 4.3v14c4.2 0 6.4.7 8 2.2 1.6-1.5 3.8-2.2 8-2.2v-14c-4.2 0-6.4.7-8 2.2zM12 6.5v14"/></svg>',
-    atur: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5c.9 1.2 2.1 1.8 3.5 1.8s2.6-.6 3.5-1.8M9 9.5h.01M15 9.5h.01" stroke-width="2.4"/></svg>',
+    hari: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3.5"/><path d="m8.5 12.2 2.5 2.5 4.6-5"/></svg>',
+    progres: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>',
+    renungan: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6.5C10.4 5 8.2 4.3 4 4.3v14c4.2 0 6.4.7 8 2.2 1.6-1.5 3.8-2.2 8-2.2v-14c-4.2 0-6.4.7-8 2.2zM12 6.5v14"/></svg>',
+    atur: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M5.6 18.4l1.6-1.6M16.8 7.2l1.6-1.6"/></svg>',
+    cari: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4-4"/></svg>',
   };
-  const VIEWS_ADMIN = [['rekap', 'Rekap'], ['checklist', 'Checklist'], ['progres', 'Progres'], ['renungan', 'Renungan'], ['atur', 'Emoji/Link']];
+  const VIEWS_ADMIN = [['hari', 'Hari ini'], ['progres', 'Progres'], ['renungan', 'Renungan'], ['atur', 'Pengaturan']];
   const VIEWS_PENDETA = [['renungan', 'Renungan']];
   let VIEWS = VIEWS_ADMIN;
   let ROLE = 'admin';
   const EMO_KEYS = [['emojiJudul', 'Emoji judul', T.EMOJI_SUDAH], ['emojiSudah', 'Emoji sudah', T.EMOJI_SUDAH], ['emojiBelum', 'Emoji belum / tertinggal', T.EMOJI_BELUM]];
 
-  let D = null, BY = {}, P = {}, PIN = null, SEL = 0;
-  let VIEW = T.store.get('tbf_admin_view') || 'rekap';
+  // jumlah pasal tiap kitab (Kejadian … Wahyu), untuk pita perjalanan Alkitab
+  const KITAB_N = ['Kejadian', 'Keluaran', 'Imamat', 'Bilangan', 'Ulangan', 'Yosua', 'Hakim-hakim', 'Rut', '1 Samuel', '2 Samuel', '1 Raja-raja', '2 Raja-raja',
+    '1 Tawarikh', '2 Tawarikh', 'Ezra', 'Nehemia', 'Ester', 'Ayub', 'Mazmur', 'Amsal', 'Pengkhotbah', 'Kidung Agung', 'Yesaya', 'Yeremia', 'Ratapan',
+    'Yehezkiel', 'Daniel', 'Hosea', 'Yoel', 'Amos', 'Obaja', 'Yunus', 'Mikha', 'Nahum', 'Habakuk', 'Zefanya', 'Hagai', 'Zakharia', 'Maleakhi',
+    'Matius', 'Markus', 'Lukas', 'Yohanes', 'Kisah Para Rasul', 'Roma', '1 Korintus', '2 Korintus', 'Galatia', 'Efesus', 'Filipi', 'Kolose',
+    '1 Tesalonika', '2 Tesalonika', '1 Timotius', '2 Timotius', 'Titus', 'Filemon', 'Ibrani', 'Yakobus', '1 Petrus', '2 Petrus', '1 Yohanes',
+    '2 Yohanes', '3 Yohanes', 'Yudas', 'Wahyu'];
+  const KITAB_C = [50, 40, 27, 36, 34, 24, 21, 4, 31, 24, 22, 25, 29, 36, 10, 13, 10, 42, 150, 31, 12, 8, 66, 52, 5, 48, 12, 14, 3, 9, 1, 4, 7, 3, 3, 3, 2, 14, 4,
+    28, 16, 24, 21, 28, 16, 16, 13, 6, 6, 4, 4, 5, 3, 6, 4, 3, 1, 13, 5, 5, 3, 5, 1, 1, 1, 22];
+  const KITAB_AWAL = KITAB_C.reduce((a, c, i) => { a.push(i ? a[i - 1] + KITAB_C[i - 1] : 0); return a; }, []);
+  const TOTAL_PASAL = KITAB_C.reduce((a, c) => a + c, 0);
+
+  let D = null, BY = {}, P = {}, PIN = null, SEL = 0, CUM = {};
+  const OLD_VIEW = T.store.get('tbf_admin_view');
+  let VIEW = OLD_VIEW === 'rekap' || OLD_VIEW === 'checklist' ? 'hari' : (OLD_VIEW || 'hari');
   let FILTER = 'semua', CQ = '', PQ = '', SORT = 'tertinggal', PMODE = 'daftar';
-  let PENDING = new Set(), EMO = null, MODAL = null, MODAL_NAMA = null, MODAL_ALL = false;
-  let CONFIRM = null, confirmTimer = null, SAVING_EMO = false;
+  let PENDING = new Set(), EMO = null, MODAL = null, MODAL_NAMA = null, MODAL_ALL = false, SHEET = null;
+  let CONFIRM = null, confirmTimer = null, SAVING_EMO = false, RECAP_EDIT = null;
   let RN_FORCE = {};                          // "tetap simpan di hari ini" walau tanggal di teks berbeda
   let RSEL = 0, RN_TEXT = {}, RN_DRAFT = {}, RN_LOADING = new Set(), RN_SAVING = 0, RN_PREVIEW = false, RN_DEL = false;
-  if (!VIEWS.some(v => v[0] === VIEW)) VIEW = 'rekap';
+  if (!VIEWS.some(v => v[0] === VIEW)) VIEW = 'hari';
+  const $side = document.getElementById('side');
+  const $sideNav = document.getElementById('side-nav');
+  const $rbar = document.getElementById('rbar');
 
   /* ============ muat data ============ */
   const DATA_KEY = 'tbf_admin_data';
@@ -75,6 +91,7 @@
     }
     T.syncing(false);
     ss.set(PIN_KEY, PIN);
+    markUpdated();
     if (PENDING.size || SAVING_EMO || RN_SAVING) return; // ada perubahan yang sedang disimpan → jangan timpa
     const json = JSON.stringify(data);
     if (D && json === LAST_JSON) { if (fresh) T.toast('Data sudah yang terbaru'); return; } // tidak ada yang berubah
@@ -93,6 +110,11 @@
   }
 
   let LAST_JSON = '';
+  function markUpdated() {
+    const el = document.getElementById('updated'); if (!el) return;
+    const d = new Date();
+    el.textContent = 'Diperbarui ' + String(d.getHours()).padStart(2, '0') + '.' + String(d.getMinutes()).padStart(2, '0');
+  }
   function apply(data) {
     const keepModal = MODAL_NAMA;
     const emoDirty = D && EMO && EMO_KEYS.some(([k]) => EMO[k] !== D.settings[k]);
@@ -105,6 +127,9 @@
     if (!VIEWS.some(v => v[0] === VIEW)) VIEW = VIEWS[0][0];
     if (!RSEL || !BY[RSEL]) RSEL = D.currentDay || 1;
     document.querySelector('.topbar .tag').textContent = ROLE === 'pendeta' ? 'Pendeta' : 'Admin';
+    document.getElementById('side-role').textContent = ROLE === 'pendeta' ? 'Pendeta' : 'Admin';
+    document.getElementById('side-name').textContent = D.settings.namaKelompok;
+    hitungPita();
     if (!emoDirty) EMO = pickEmo(D.settings);
     document.getElementById('group-name').textContent = D.settings.namaKelompok;
     document.title = (ROLE === 'pendeta' ? 'Renungan · ' : 'Admin · ') + D.settings.namaKelompok;
@@ -118,8 +143,8 @@
   const pickEmo = s => ({ emojiJudul: s.emojiJudul, emojiSudah: s.emojiSudah, emojiBelum: s.emojiBelum });
 
   function renderLogin(err) {
-    $tools.hidden = true; $day.hidden = true; $nav.hidden = true;
-    document.body.classList.remove('has-nav');
+    $tools.hidden = true; $day.hidden = true; $nav.hidden = true; $side.hidden = true; $rbar.hidden = true;
+    document.body.classList.remove('has-nav', 'has-rbar');
     $app.innerHTML = `<section class="card login">
       <div class="big-icon">🔐</div><h2>Masuk admin / pendeta</h2>
       <form id="login"><input class="input pin-input" type="password" placeholder="PIN" autocomplete="current-password" autocapitalize="off" spellcheck="false" required aria-label="PIN">
@@ -131,25 +156,15 @@
     f.addEventListener('submit', e => { e.preventDefault(); PIN = f.querySelector('input').value.trim(); load(); });
   }
 
-  /* ============ kerangka: bilah tanggal + navigasi bawah ============ */
-  function renderAll() { renderDaybar(); renderNav(); renderView(); }
-
-  function renderDaybar() {
-    const cur = D.currentDay;
-    if (!cur || VIEW === 'atur' || VIEW === 'renungan') { $day.hidden = true; return; }
-    const r = BY[SEL];
-    $day.hidden = false;
-    $day.innerHTML = `<div class="wrap daybar-in">
-      <button class="icon-btn" data-act="prev" ${SEL <= 1 ? 'disabled' : ''} aria-label="Bacaan sebelumnya">‹</button>
-      <div class="daybar-mid">
-        <span class="daybar-date">${T.fmtTanggal(r.tanggal, { short: true })} · hari ke-${SEL}
-          ${SEL !== cur ? '<button class="mini-pill" data-act="latest">Terbaru ›</button>' : '<span class="mini-pill on">Terbaru</span>'}</span>
-        <strong class="daybar-read">${T.esc(r.bacaan)}</strong>
-      </div>
-      <button class="icon-btn" data-act="next" ${SEL >= cur ? 'disabled' : ''} aria-label="Bacaan berikutnya">›</button></div>`;
-  }
+  /* ============ kerangka: menu samping (laptop) / bawah (HP) + kepala hari ============ */
+  function renderAll() { renderNav(); renderDaybar(); renderView(); }
 
   function renderNav() {
+    const btn = ([k, l]) => `<button class="side-link ${VIEW === k ? 'on' : ''}" data-view="${k}" title="${l}" aria-current="${VIEW === k ? 'page' : 'false'}">
+        ${ICON[k]}<span class="side-label">${l}</span></button>`;
+    $side.hidden = false;
+    $sideNav.innerHTML = VIEWS.map(btn).join('');
+    syncSideToggle();
     if (VIEWS.length < 2) { $nav.hidden = true; document.body.classList.remove('has-nav'); return; }
     $nav.hidden = false;
     document.body.classList.add('has-nav');
@@ -157,26 +172,81 @@
       <button class="nav-btn ${VIEW === k ? 'on' : ''}" data-view="${k}" aria-current="${VIEW === k ? 'page' : 'false'}">
         ${ICON[k]}<span>${l}</span></button>`).join('')}</div>`;
   }
+  function syncSideToggle() {
+    const mini = document.documentElement.classList.contains('side-mini');
+    const b = document.querySelector('.side-toggle'); if (!b) return;
+    b.setAttribute('aria-expanded', String(!mini));
+    b.title = mini ? 'Lebarkan menu' : 'Ciutkan menu';
+    b.querySelector('.side-label').textContent = mini ? 'Lebarkan menu' : 'Ciutkan menu';
+  }
+
+  /* --- pita perjalanan Alkitab --- */
+  function hitungPita() {
+    CUM = {};
+    let start = 0;
+    const f = D.schedule[0] && String(D.schedule[0].bacaan).match(/^(.*\S)\s+(\d+)/);
+    if (f) { const i = KITAB_N.findIndex(n => n.toLowerCase() === f[1].toLowerCase()); if (i >= 0) start = KITAB_AWAL[i] + (+f[2] - 1); }
+    let c = start;
+    D.schedule.forEach(x => { CUM[x.hari] = c; c += x.pasal || 0; });
+  }
+  function pitaHtml(h) {
+    const g = CUM[h] || 0; const pct = Math.min(100, (g / TOTAL_PASAL) * 100);
+    const books = KITAB_C.map((n, i) => {
+      const fill = Math.max(0, Math.min(1, (g - KITAB_AWAL[i]) / n)) * 100;
+      return `<i class="${i >= 39 ? 'nt' : ''}" style="flex:${n} 1 0px">${fill ? `<b style="width:${fill.toFixed(1)}%"></b>` : ''}</i>`;
+    }).join('');
+    const last = D.schedule[D.schedule.length - 1];
+    const pb = D.schedule.find(x => /(^|&\s*)Matius\s+1(?!\d)/.test(x.bacaan));
+    const mid = pb ? (pb.hari <= h ? 'Sudah di Perjanjian Baru' : 'Perjanjian Baru mulai ' + fmtLong(pb.tanggal, true)) : '';
+    const n = g.toLocaleString('id-ID');
+    return `<div class="pita" role="img" aria-label="Posisi bacaan: ${n} dari ${TOTAL_PASAL.toLocaleString('id-ID')} pasal Alkitab">
+        <div class="pita-books" aria-hidden="true">${books}</div>
+        <span class="pita-mark" aria-hidden="true" style="left:${pct.toFixed(2)}%"></span>
+        <div class="pita-cap" aria-hidden="true"><span><b>${n} dari ${TOTAL_PASAL.toLocaleString('id-ID')} pasal</b></span>
+          ${mid ? `<span class="pc-mid">${mid}</span>` : ''}
+          ${last ? `<span>Selesai ${fmtLong(last.tanggal, true)}</span>` : ''}</div>
+      </div>`;
+  }
+
+  function renderDaybar() {
+    const cur = D.currentDay;
+    if (!cur || (VIEW !== 'hari' && VIEW !== 'progres')) { $day.hidden = true; return; }
+    const r = BY[SEL];
+    $day.hidden = false;
+    $day.innerHTML = `<div class="wrap dh-in">
+      <div class="dh-top">
+        <button class="icon-btn" data-act="prev" ${SEL <= 1 ? 'disabled' : ''} aria-label="Bacaan sebelumnya">‹</button>
+        <button class="icon-btn dh-next-desk" data-act="next" ${SEL >= cur ? 'disabled' : ''} aria-label="Bacaan berikutnya">›</button>
+        <div class="dh-date"><span>${fmtLong(r.tanggal)}, hari ke-${SEL}</span>
+          ${SEL !== cur ? '<button class="mini-pill" data-act="latest">Ke hari ini ›</button>' : ''}</div>
+        <button class="icon-btn dh-next-mob" data-act="next" ${SEL >= cur ? 'disabled' : ''} aria-label="Bacaan berikutnya">›</button>
+      </div>
+      <h1 class="dh-title">${T.esc(r.bacaan).replace(/(\d)-(\d)/g, '$1–$2')}</h1>
+      ${pitaHtml(SEL)}
+    </div>`;
+  }
 
   function renderView() {
+    closeSheet();
     if (!D.currentDay && VIEW !== 'atur' && VIEW !== 'renungan') {
       const f = D.schedule[0];
       $app.innerHTML = `<section class="card center-card"><div class="big-icon">📅</div><h2>Pembacaan belum dimulai</h2>
         <p class="muted">${f ? 'Mulai ' + T.fmtTanggal(f.tanggal) + ': ' + T.esc(f.bacaan) : 'Jadwal kosong. Jalankan setupAwal di Apps Script.'}</p></section>`;
+      renderRbar();
       return;
     }
-    if (VIEW === 'rekap') { $app.innerHTML = viewRekap(); bindRekap(); }
-    else if (VIEW === 'checklist') { $app.innerHTML = viewChecklist(); renderCFilter(); renderCList(); }
+    if (VIEW === 'hari') { $app.innerHTML = viewHari(); renderCFilter(); renderCList(); renderRecap(); }
     else if (VIEW === 'progres') { $app.innerHTML = viewProgres(); renderPBody(); }
     else if (VIEW === 'renungan') { $app.innerHTML = viewRenungan(); bindRenungan(); }
     else { $app.innerHTML = viewAtur(); syncEmoUI(); }
+    renderRbar();
   }
 
   /** setelah data berubah: gambar ulang bagian yang terlihat saja (input pencarian tetap fokus) */
   function refresh() {
-    if (VIEW === 'checklist') { renderCFilter(); renderCList(); }
+    if (VIEW === 'hari') { renderCFilter(); renderCList(); renderRecap(); }
     else if (VIEW === 'progres') renderPBody();
-    else if (VIEW === 'rekap') { $app.innerHTML = viewRekap(); bindRekap(); }
+    renderRbar();
     if (MODAL) MODAL.setHtml(personHtml(MODAL_NAMA));
   }
 
@@ -191,72 +261,120 @@
     });
   }
 
-  /* ============ 1. REKAP ============ */
-  function viewRekap() {
-    const rows = computeRows(SEL);
-    const nOk = rows.filter(x => !x.belum).length;
-    const nFar = rows.filter(x => x.tertinggal > 3).length;
-    const recap = T.buildRecap(BY[SEL], D.members, n => P[n], D.settings, BY);
-    const s = D.settings;
-    return `
-      <section class="kpis">
-        <div class="kpi ok"><span class="kpi-num">${nOk}<small>/${rows.length}</small></span><span class="kpi-label">Lengkap</span></div>
-        <div class="kpi warn"><span class="kpi-num">${rows.length - nOk}</span><span class="kpi-label">Tertinggal</span></div>
-        <div class="kpi danger"><span class="kpi-num">${nFar}</span><span class="kpi-label">&gt; 3 bacaan</span></div>
-      </section>
-      <section class="card">
-        <div class="card-head"><h3>Teks rekap WhatsApp</h3>
-          <button class="chip-btn" data-view="atur">${T.esc(s.emojiJudul)} ${T.esc(s.emojiSudah)} ${T.esc(s.emojiBelum)} · Ubah</button></div>
-        <div class="row-btns mb">
-          <button class="btn-primary" data-act="copy-recap">Salin teks</button>
-          <a class="btn-wa" id="wa-link" href="#" target="${T.waTarget}" rel="noopener">Kirim ke WA</a>
+  /* ============ 1. HARI INI: checklist + rekap ============ */
+  function weekDays() { const out = []; for (let d = SEL - 6; d <= SEL; d++) out.push(d); return out; }
+  function viewHari() {
+    const wk = weekDays().map(d => `<span>${BY[d] ? +BY[d].tanggal.slice(8) : ''}</span>`).join('');
+    return `<div class="hari-grid">
+      <section class="card roster" aria-labelledby="h-anggota">
+        <div class="roster-head">
+          <h2 id="h-anggota">Anggota</h2>
+          <div class="seg" id="cfilter" role="group" aria-label="Saring"></div>
+          <label class="roster-search">${ICON.cari}<input class="input" id="cq" type="search" placeholder="Cari nama" value="${T.esc(CQ)}" autocomplete="off" aria-label="Cari nama"></label>
         </div>
-        <textarea class="recap-text" id="recap" rows="12" aria-label="Teks rekap">${T.esc(recap)}</textarea>
-        <p class="muted small">Teks boleh diedit dulu sebelum disalin.</p>
-      </section>`;
-  }
-  function bindRekap() {
-    const ta = document.getElementById('recap'); const wa = document.getElementById('wa-link');
-    const upd = () => { wa.href = T.waUrl(ta.value); };
-    ta.addEventListener('input', upd); upd();
-  }
-
-  /* ============ 2. CHECKLIST ============ */
-  function viewChecklist() {
-    return `<section class="card">
-      <div class="card-head"><div><h3>Checklist ${T.esc(BY[SEL].singkat)}</h3>
-        <p class="muted small nomb">Ketuk lingkaran untuk menandai sudah / belum. Ketuk nama untuk detail.</p></div></div>
-      <input class="input" id="cq" type="search" placeholder="Cari nama…" value="${T.esc(CQ)}" autocomplete="off" aria-label="Cari nama">
-      <div class="seg" id="cfilter" role="tablist"></div>
-      <div class="clist" id="clist"></div></section>`;
+        <div class="rhead" aria-hidden="true"><span>Nama</span><span class="wk-h">${wk}</span><span>Belum dibaca</span><span class="r-today">Hari ini</span></div>
+        <div id="clist"></div>
+      </section>
+      <aside class="recap-side" aria-label="Rekap">
+        <section class="card" data-rbox>
+          <div class="rbox-head"><h2>Rekap untuk grup</h2><button class="link-btn" data-view="atur">Ubah emoji</button></div>
+          <div class="bubble-wrap"><textarea class="bubble" id="recap" aria-label="Teks rekap WhatsApp"></textarea></div>
+          <div class="rbox-btns">
+            <button class="btn-secondary" data-act="copy-recap">Salin teks</button>
+            <a class="btn-primary" data-wa href="#" target="${T.waTarget}" rel="noopener">Kirim ke WhatsApp</a>
+          </div>
+          <p class="rbox-note" id="recap-note"></p>
+        </section>
+        <section class="card lag" id="lag"></section>
+      </aside>
+    </div>`;
   }
   function renderCFilter() {
     const el = document.getElementById('cfilter'); if (!el) return;
     const sudah = D.members.filter(m => P[m.nama].has(SEL)).length;
     const opts = [['semua', 'Semua', D.members.length], ['belum', 'Belum', D.members.length - sudah], ['sudah', 'Sudah', sudah]];
-    el.innerHTML = opts.map(([k, l, n]) => `<button class="seg-btn ${FILTER === k ? 'on' : ''}" data-filter="${k}">${l} <b>${n}</b></button>`).join('');
+    el.innerHTML = opts.map(([k, l, n]) => `<button class="seg-btn ${FILTER === k ? 'on' : ''}" data-filter="${k}" aria-pressed="${FILTER === k}">${l} <b>${n}</b></button>`).join('');
   }
   function renderCList() {
     const el = document.getElementById('clist'); if (!el) return;
     const q = CQ.trim().toLowerCase();
+    const days = weekDays();
     const list = D.members.filter(m => {
       const on = P[m.nama].has(SEL);
       return (!q || m.nama.toLowerCase().includes(q)) && (FILTER === 'semua' || (FILTER === 'sudah') === on);
     });
     el.innerHTML = list.map(m => {
       const set = P[m.nama]; const on = set.has(SEL); const fu = T.firstUnread(set, SEL); const n = T.countUnread(set, SEL);
-      const sub = on ? (fu ? `Bacaan ini sudah · masih ${T.esc(BY[fu].singkat)}` : 'Lengkap')
-        : fu < SEL ? `Tertinggal ${n} · masih ${T.esc(BY[fu].singkat)}` : 'Belum lapor';
+      const sub = !fu ? 'Lengkap' : on ? `Hari ini sudah, masih tertinggal ${n}`
+        : n === 1 ? 'Belum lapor hari ini' : `Tertinggal ${n} bacaan`;
+      const subCls = !fu ? '' : n >= 3 ? 'danger' : n >= 2 ? 'warn' : '';
+      const nRead = days.filter(d => d >= 1 && set.has(d)).length, nDays = days.filter(d => d >= 1).length;
+      const dots = days.map(d => d < 1 ? '<i class="na"></i>' : `<i class="${set.has(d) ? 'on' : ''}"></i>`).join('');
+      const badge = fu ? `<span class="badge ${n >= 3 ? 'danger' : 'warn'}">${T.esc(BY[fu].singkat)}</span>` : '<span class="badge ok">Lengkap</span>';
       const busy = PENDING.has(m.nama + '|' + SEL);
-      return `<div class="crow ${on ? 'on' : ''}">
-        <button class="crow-main" data-person="${T.esc(m.nama)}"><span class="p-name">${T.esc(m.nama)}</span>
-          <span class="p-sub ${!on && fu < SEL ? 'warn' : ''}">${sub}</span></button>
+      return `<div class="rrow ${on ? 'on' : ''}">
+        <button class="rr-main" data-person="${T.esc(m.nama)}"><span class="rr-name">${T.esc(m.nama)}</span>
+          <span class="rr-sub ${subCls}">${sub}</span></button>
+        <span class="wk" role="img" aria-label="7 bacaan terakhir: ${nRead} dari ${nDays} sudah">${dots}</span>
+        <span class="rr-badge">${badge}</span>
         <button class="tick-btn ${on ? 'on' : ''} ${busy ? 'busy' : ''}" data-tick="${T.esc(m.nama)}" aria-pressed="${on}"
-          aria-label="${T.esc(BY[SEL].bacaan)} untuk ${T.esc(m.nama)}">✓</button></div>`;
-    }).join('') || '<p class="muted center">Tidak ada nama di daftar ini.</p>';
+          aria-label="${T.esc(m.nama)}: ${on ? 'sudah' : 'tandai sudah'} baca ${T.esc(BY[SEL].bacaan)}">✓</button></div>`;
+    }).join('') || '<p class="roster-empty">Tidak ada nama di daftar ini.</p>';
   }
 
-  /* ============ 3. PROGRES ============ */
+  /* --- rekap WA (laptop: kolom kanan; HP: bilah bawah + lembar) --- */
+  const autoRecap = () => T.buildRecap(BY[SEL], D.members, n => P[n], D.settings, BY);
+  const recapText = () => (RECAP_EDIT && RECAP_EDIT.hari === SEL ? RECAP_EDIT.text : autoRecap());
+  function renderRecap() {
+    const ta = document.getElementById('recap');
+    if (ta && document.activeElement !== ta) ta.value = recapText();
+    syncWaLinks();
+    const note = document.getElementById('recap-note');
+    if (note) note.innerHTML = RECAP_EDIT && RECAP_EDIT.hari === SEL
+      ? 'Teks sudah Anda ubah, jadi tidak ikut berubah saat mencentang. <button class="link-btn" data-act="recap-reset">Pakai teks otomatis</button>'
+      : 'Teks ikut berubah saat Anda mencentang anggota.';
+    const lag = document.getElementById('lag');
+    if (lag) {
+      const rows = computeRows(SEL).filter(r => r.tertinggal >= 3).sort((a, b) => b.tertinggal - a.tertinggal || a.nama.localeCompare(b.nama, 'id'));
+      lag.innerHTML = `<h3>Perlu diingatkan</h3><p>Tertinggal 3 bacaan atau lebih</p>${rows.length
+        ? rows.map(r => `<button class="lag-row" data-person="${T.esc(r.nama)}"><b>${T.esc(r.nama)}</b><span>${r.tertinggal} bacaan</span></button>`).join('')
+        : '<p class="nomb">Tidak ada. Semua masih dekat dengan jadwal.</p>'}`;
+    }
+  }
+  function syncWaLinks() {
+    document.querySelectorAll('[data-rbox]').forEach(box => {
+      const ta = box.querySelector('textarea'); const a = box.querySelector('[data-wa]');
+      if (ta && a) a.href = T.waUrl(ta.value);
+    });
+  }
+  function renderRbar() {
+    const show = !!D && VIEW === 'hari' && !!D.currentDay && ROLE === 'admin';
+    $rbar.hidden = !show;
+    document.body.classList.toggle('has-rbar', show);
+    if (!show) return;
+    const sudah = D.members.filter(m => P[m.nama].has(SEL)).length;
+    $rbar.innerHTML = `<div class="wrap rbar-in">
+      <div class="rbar-txt"><b>${sudah} dari ${D.members.length} sudah</b><span>Rekap ${T.esc(BY[SEL].singkat)} siap dikirim</span></div>
+      <button class="btn-light" data-act="recap-sheet">Kirim rekap</button></div>`;
+  }
+  function sheetHtml() {
+    const s = D.settings;
+    return `<div class="sheet-recap" data-rbox>
+      <header class="modal-head"><div><h2>Rekap untuk grup</h2>
+        <p class="muted small nomb">${D.members.filter(m => P[m.nama].has(SEL)).length} sudah, ${D.members.filter(m => !P[m.nama].has(SEL)).length} belum</p></div>
+        <button class="icon-btn" data-close aria-label="Tutup">×</button></header>
+      <div class="bubble-wrap"><textarea class="bubble" id="recap-s" aria-label="Teks rekap WhatsApp">${T.esc(recapText())}</textarea></div>
+      <div class="emo-line"><span>Emoji: ${T.esc(s.emojiSudah)} sudah, ${T.esc(s.emojiBelum)} belum</span>
+        <button class="link-btn" data-view="atur">Ubah</button></div>
+      <div class="rbox-btns">
+        <button class="btn-secondary" data-act="copy-recap">Salin teks</button>
+        <a class="btn-primary" data-wa href="#" target="${T.waTarget}" rel="noopener">Kirim ke WhatsApp</a>
+      </div></div>`;
+  }
+  function openSheet() { SHEET = T.openModal(sheetHtml(), { onClose: () => { SHEET = null; } }); syncWaLinks(); }
+  function closeSheet() { if (SHEET) { const s = SHEET; SHEET = null; s.close(); } }
+
+  /* ============ 2. PROGRES ============ */
   function viewProgres() {
     return `<section class="card">
       <div class="seg" role="tablist">
@@ -313,56 +431,122 @@
   function rnDirty(h) { return h in RN_DRAFT && RN_DRAFT[h] !== (RN_TEXT[h] || ''); }
 
   function viewRenungan() {
-    const cur = D.currentDay || 1; const s = BY[RSEL]; const meta = rnMetaMap()[RSEL];
+    const cur = D.currentDay || 1; const s = BY[RSEL]; const mm = rnMetaMap(); const meta = mm[RSEL];
     const loading = RN_LOADING.has(RSEL);
     const when = RSEL === cur ? 'hari ini' : RSEL === cur + 1 ? 'besok' : RSEL < cur ? 'sudah lewat' : 'akan datang';
-    const from = Math.max(1, cur - 6), to = Math.min(rnMaxDay(), cur + 7);
-    const mm = rnMetaMap(); let rows = '';
-    for (let h = to; h >= from; h--) {
+    const st = h => (rnDirty(h) ? 'draft' : mm[h] ? 'ok' : '');
+    const bac = x => T.esc(x.bacaan).replace(/(\d)-(\d)/g, '$1–$2');
+    // laptop: daftar hari di kiri
+    const lf = Math.max(1, Math.min(RSEL - 4, rnMaxDay() - 13)), lt = Math.min(rnMaxDay(), lf + 13);
+    let list = '';
+    for (let h = lf; h <= lt; h++) {
       const x = BY[h]; if (!x) continue;
-      rows += `<button class="rn-srow ${h === RSEL ? 'on' : ''}" data-rsel="${h}">
-        <span class="rn-s-date">${T.fmtTanggal(x.tanggal, { short: true })}${h === cur ? ' <span class="mini-pill on">Hari ini</span>' : ''}</span>
-        <span class="rn-s-read">${T.esc(x.bacaan)}</span>
-        <span class="rn-s-st ${mm[h] ? 'ok' : ''}">${rnDirty(h) ? '✎ draf' : mm[h] ? '✓' : '–'}</span></button>`;
+      const note = h === cur ? 'Hari ini' : rnDirty(h) ? 'Draf belum disimpan' : mm[h] ? 'Sudah ada' : 'Belum ada';
+      list += `<button class="rn-day ${h === RSEL ? 'sel' : ''}" data-rsel="${h}" aria-current="${h === RSEL}">
+        <span class="rn-day-d">${T.fmtTanggal(x.tanggal, { short: true }).split(',')[0]}<b>${T.fmtTanggal(x.tanggal, { short: true }).split(', ')[1]}</b></span>
+        <span><span class="rn-day-r">${bac(x)}</span><span class="rn-day-n ${h === cur ? 'is-today' : ''}">${note}</span></span>
+        <span class="st-dot ${st(h)}" aria-hidden="true"></span></button>`;
+    }
+    // HP: deretan tanggal
+    const cf = Math.max(1, RSEL - 7), ct = Math.min(rnMaxDay(), RSEL + 14);
+    let chips = '';
+    for (let h = cf; h <= ct; h++) {
+      const x = BY[h]; if (!x) continue;
+      const p = x.tanggal.split('-');
+      chips += `<button class="rn-chip-d ${h === RSEL ? 'sel' : ''} ${h === cur ? 'is-today' : ''}" data-rsel="${h}" aria-pressed="${h === RSEL}"
+        aria-label="${T.fmtTanggal(x.tanggal)}, ${T.esc(x.bacaan)}, ${mm[h] ? 'renungan sudah ada' : 'belum ada renungan'}">
+        <small>${h === cur ? 'Hari ini' : x.namaHari.slice(0, 3)}</small><b>${+p[2]}</b><span class="st-dot ${st(h)}"></span></button>`;
     }
     return `
-      <section class="card rn-adm-day">
-        <div class="rn-dnav">
-          <button class="icon-btn" data-act="rn-prevday" ${RSEL <= 1 ? 'disabled' : ''} aria-label="Hari sebelumnya">‹</button>
-          <div class="rn-dmid">
-            <span class="daybar-date">${fmtY(s.tanggal)} · ${when}</span>
-            <strong class="daybar-read">${T.esc(s.bacaan)}</strong>
-            <span class="rn-chip ${meta ? 'ok' : ''}">${meta ? '✓ Renungan sudah ada' : 'Belum ada renungan'}</span>
-          </div>
-          <button class="icon-btn" data-act="rn-nextday" ${RSEL >= rnMaxDay() ? 'disabled' : ''} aria-label="Hari berikutnya">›</button>
-        </div>
-        <div class="rn-jump">
-          <label class="rn-jump-date"><span>Pilih tanggal</span>
-            <input class="input" type="date" id="rn-date" value="${s.tanggal}" min="${D.schedule[0].tanggal}" max="${D.schedule[D.schedule.length - 1].tanggal}"></label>
+      <div class="rn-top">
+        <div><h1>Renungan</h1><p>${(D.rnMeta || []).length} dari ${D.schedule.length} hari sudah ada renungannya</p></div>
+        <div class="rn-top-tools">
+          <label class="rn-jump-date"><span>Lompat ke</span>
+            <input type="date" id="rn-date" value="${s.tanggal}" min="${D.schedule[0].tanggal}" max="${D.schedule[D.schedule.length - 1].tanggal}"></label>
           <button class="chip-btn" data-act="rn-nextempty">Hari kosong berikutnya ›</button>
         </div>
-        ${RSEL !== cur ? '<button class="link-btn rn-today" data-act="rn-today">Kembali ke hari ini</button>' : ''}
-      </section>
-      <section class="card">
-        <div class="card-head"><h3>Teks renungan</h3><span class="muted small" id="rn-count"></span></div>
-        <div class="rn-hint" id="rn-hint" hidden></div>
-        <textarea class="recap-text rn-input" id="rn-text" placeholder="${loading ? 'Memuat renungan…' : 'Tempel renungan dari WhatsApp di sini. Tanggal di baris pertama akan dikenali otomatis.'}" ${loading ? 'disabled' : ''} aria-label="Teks renungan"></textarea>
-        <div class="row-btns mt-s">
-          <button class="btn-secondary" data-act="rn-preview" aria-pressed="${RN_PREVIEW}">${RN_PREVIEW ? 'Tutup pratinjau' : 'Pratinjau'}</button>
-          <button class="btn-primary" data-act="rn-save" id="rn-save">Simpan</button>
-        </div>
-        <p class="muted small rn-status" id="rn-status">${meta ? `Tersimpan ${T.relTime(meta.t)} oleh ${T.esc(meta.oleh || '-')}.` : ''}
-          ${RSEL > cur ? ` Akan tampil di aplikasi anggota pada ${T.fmtTanggal(s.tanggal, { short: true })}.` : ''}</p>
-        ${meta ? `<button class="link-btn danger ${RN_DEL ? 'confirm' : ''}" data-act="rn-del">${RN_DEL ? 'Yakin hapus? Ketuk lagi' : 'Hapus renungan ini'}</button>` : ''}
-      </section>
-      <section class="card" id="rn-prev-card" ${RN_PREVIEW ? '' : 'hidden'}>
-        <p class="eyebrow">Pratinjau · seperti yang dilihat anggota</p>
-        <article class="rn rn-preview" id="rn-prev"></article>
-      </section>
-      <section class="card">
-        <div class="card-head"><h3>Status renungan</h3><span class="muted small">${(D.rnMeta || []).length} dari ${D.schedule.length} hari sudah ada</span></div>
-        <div class="rn-slist">${rows}</div>
-      </section>`;
+      </div>
+      <div class="rn-chips" id="rn-chips" role="group" aria-label="Pilih hari">${chips}</div>
+      <div class="rn-grid">
+        <section class="card rn-list-card" aria-label="Daftar hari">${list}
+          ${RSEL !== cur ? '<button class="link-btn rn-list-more" data-act="rn-today">Kembali ke hari ini</button>' : ''}</section>
+        <section class="card rn-editor">
+          <div class="rn-ed-head">
+            <div>
+              <div class="rn-ed-date">${fmtLong(s.tanggal)}, ${when}</div>
+              <h2 class="rn-ed-title">${bac(s)}</h2>
+            </div>
+            <div class="rn-ed-nav">
+              <button class="icon-btn" data-act="rn-prevday" ${RSEL <= 1 ? 'disabled' : ''} aria-label="Hari sebelumnya">‹</button>
+              <button class="icon-btn" data-act="rn-nextday" ${RSEL >= rnMaxDay() ? 'disabled' : ''} aria-label="Hari berikutnya">›</button>
+            </div>
+          </div>
+          <div class="rn-hint" id="rn-hint" hidden></div>
+          <div class="rn-label-row"><label for="rn-text">${meta ? 'Teks renungan' : 'Tempel teks dari WhatsApp'}</label><span class="muted small" id="rn-count"></span></div>
+          <div class="rn-tools" role="toolbar" aria-label="Sisipkan desain">
+            ${RN_FMT.map(([k, l, g]) => `<button type="button" class="rn-tool" data-fmt="${k}" title="${l}"><span class="rn-tool-g" aria-hidden="true">${g}</span>${l}</button>`).join('')}
+            <button type="button" class="rn-tool rn-tool-help" data-act="rn-guide">Panduan</button>
+          </div>
+          <textarea class="recap-text rn-input" id="rn-text" placeholder="${loading ? 'Memuat renungan…' : 'Tempel renungan dari WhatsApp di sini. Guidelines dan tanggal di awal teks dikenali otomatis.'}" ${loading ? 'disabled' : ''}></textarea>
+          <p class="muted small rn-status" id="rn-status">${meta ? `Tersimpan ${T.relTime(meta.t)} oleh ${T.esc(meta.oleh || '-')}.` : 'Belum ada renungan untuk tanggal ini.'}
+            ${RSEL > cur ? ` Tampil ke anggota pada ${T.fmtTanggal(s.tanggal, { short: true })}.` : ''}</p>
+          <button class="link-btn rn-copywa" data-act="rn-copywa">Salin versi WhatsApp</button>
+          ${meta ? `<button class="link-btn danger ${RN_DEL ? 'confirm' : ''}" data-act="rn-del">${RN_DEL ? 'Yakin hapus? Ketuk lagi' : 'Hapus renungan ini'}</button>` : ''}
+          <div class="rn-actions">
+            <button class="btn-secondary rn-prevbtn" data-act="rn-preview" aria-pressed="${RN_PREVIEW}">${RN_PREVIEW ? 'Tutup pratinjau' : 'Pratinjau'}</button>
+            <button class="btn-primary" data-act="rn-save" id="rn-save">Simpan</button>
+          </div>
+        </section>
+        <aside class="rn-prev-wrap ${RN_PREVIEW ? 'show' : ''}" id="rn-prev-card" aria-label="Pratinjau seperti yang dilihat anggota">
+          <p class="rn-prev-cap">Yang dilihat anggota</p>
+          <div class="phone"><div class="phone-head"><small>${fmtLong(s.tanggal)}</small><b>${bac(s)}</b></div>
+            <div class="phone-body"><article class="rn rn-preview" id="rn-prev"></article></div></div>
+        </aside>
+      </div>`;
+  }
+
+  /* --- desain renungan: tombol sisip + panduan --- */
+  const RN_FMT = [
+    ['judul', 'Judul pasal', '*A*'], ['poin', 'Poin', '%A%'], ['ayat', 'Ayat kunci', '$A$'], ['kutip', 'Kutipan', '&gt; A'],
+    ['penting', 'Penting', '!A!'], ['aksi', 'Lakukan', '&amp;A&amp;'], ['garis', 'Pemisah', '---'],
+  ];
+  const RN_SISIP = {
+    judul: ['*', '*', 'Kejadian 1'], poin: ['%', '%', 'Tulis poin di sini'], ayat: ['$', '$', 'Tulis ayat di sini (Kej 1:1)'],
+    kutip: ['> ', '', 'Tulis kutipan ayat'], penting: ['!', '!', 'Tulis hal yang penting'], aksi: ['&', '&', 'Tulis langkah untuk hari ini'],
+    garis: ['---', '', ''],
+  };
+  function rnInsert(k) {
+    const ta = document.getElementById('rn-text'); if (!ta || ta.disabled) return;
+    const [a, z, ph] = RN_SISIP[k];
+    const v = ta.value; const s0 = ta.selectionStart, s1 = ta.selectionEnd; const sel = v.slice(s0, s1);
+    const ins = k === 'garis' ? '---' : sel.trim()
+      ? sel.split('\n').map(l => (l.trim() ? a + l.trim().replace(/^[%$!&>*]\s?|[%$!&*]$/g, '') + z : l)).join('\n') : a + ph + z;
+    const pre = s0 > 0 && v[s0 - 1] !== '\n' ? '\n' : '';
+    const post = s1 < v.length && v[s1] !== '\n' ? '\n' : '';
+    ta.focus(); ta.setSelectionRange(s0, s1);
+    const text = pre + ins + post;
+    let ok = false; try { ok = document.execCommand('insertText', false, text); } catch (e) { /* lama */ }
+    if (!ok || ta.value.indexOf(ins) < 0) ta.setRangeText(text, s0, s1, 'end');
+    if (!sel.trim() && ph) { const st = s0 + pre.length + a.length; ta.setSelectionRange(st, st + ph.length); }
+    RN_DRAFT[RSEL] = ta.value; syncRn();
+  }
+  const RN_CONTOH = [
+    ['*Kejadian 1*', 'Judul pasal. Satu baris pendek diapit bintang.'],
+    ['%Allah berfirman dan semuanya jadi%\n%Manusia diciptakan menurut gambar Allah%', 'Poin bernomor. Nomornya otomatis, mulai dari 1 lagi setiap judul pasal.'],
+    ['$Pada mulanya Allah menciptakan langit dan bumi. (Kej 1:1)$', 'Ayat kunci. Alamat ayat di dalam kurung ditulis di bawahnya.'],
+    ['> Jadilah terang. Lalu terang itu jadi.\n> — Kejadian 1:3', 'Kutipan ayat. Baris yang diawali tanda — menjadi sumbernya.'],
+    ['!Jangan lewatkan doa pagi hari ini!', 'Kotak penting.'],
+    ['&Baca Mazmur 8 sebelum tidur&\n&Ucapkan syukur untuk satu hal kecil&', 'Daftar "Lakukan hari ini". Anggota bisa mencentangnya.'],
+    ['---', 'Pemisah antarbagian.'],
+  ];
+  function rnGuideHtml() {
+    return `<header class="modal-head"><div><h2>Desain renungan</h2>
+        <p class="muted small nomb">Tulis simbol di awal dan akhir baris. Simbol di tengah kalimat tidak berpengaruh.</p></div>
+        <button class="icon-btn" data-close aria-label="Tutup">×</button></header>
+      <div class="rn-guide">${RN_CONTOH.map(([src, note]) => `<div class="rn-g-row">
+          <div><p class="rn-g-note">${T.esc(note)}</p><pre class="rn-g-src">${T.esc(src)}</pre></div>
+          <div class="rn rn-g-out">${T.rn.format(src)}</div></div>`).join('')}</div>
+      <p class="muted small">Untuk dikirim ke grup WA, pakai <b>Salin versi WhatsApp</b> di bawah kotak teks: simbolnya diganti tanda yang rapi di WhatsApp (1️⃣ 📖 📌 ☑️).</p>`;
   }
 
   function bindRenungan() {
@@ -370,11 +554,15 @@
     ta.value = rnValue(RSEL);
     ta.addEventListener('paste', () => { const wasEmpty = !ta.value.trim(); setTimeout(() => rnDetect(wasEmpty), 0); });
     syncRn();
+    const chips = document.getElementById('rn-chips'); const sel = chips && chips.querySelector('.sel');
+    if (sel && chips.clientWidth) chips.scrollLeft = sel.offsetLeft - chips.offsetLeft - (chips.clientWidth - sel.offsetWidth) / 2;
     if (rnMetaMap()[RSEL] && !(RSEL in RN_TEXT) && !RN_LOADING.has(RSEL)) rnFetchText(RSEL);
   }
 
   const BLN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   /** "Jumat, 30 Jun" (+ tahun kalau bukan tahun ini, karena jadwal s/d Wahyu melewati beberapa tahun) */
+  /** "Sabtu, 21 November 2026"; noDay → "18 September 2028" */
+  const fmtLong = (ymd, noDay) => { const p = ymd.split('-').map(Number); return (noDay ? '' : T.dayName(ymd) + ', ') + p[2] + ' ' + BLN[p[1] - 1] + ' ' + p[0]; };
   const fmtY = (ymd, opt) => T.fmtTanggal(ymd, opt) + (ymd.slice(0, 4) !== (D.today || '').slice(0, 4) ? ' ' + ymd.slice(0, 4) : '');
   const tglTeks = ymd => { const p = ymd.split('-').map(Number); return p[2] + ' ' + BLN[p[1] - 1] + ' ' + p[0]; };
 
@@ -425,7 +613,8 @@
     if (n > 30000) hints.push('<p class="warn">⚠️ Terlalu panjang (maks. 30.000 karakter).</p>');
     const hint = document.getElementById('rn-hint');
     hint.innerHTML = hints.join(''); hint.hidden = !hints.length;
-    if (RN_PREVIEW) document.getElementById('rn-prev').innerHTML = v.trim() ? T.rn.format(v) : '<p class="muted">Belum ada teks.</p>';
+    const pv = document.getElementById('rn-prev');
+    if (pv && pv.offsetParent !== null) pv.innerHTML = v.trim() ? T.rn.format(v) : '<p class="muted">Belum ada teks.</p>';
   }
 
   /** setelah tempel: kalau tanggal di teks menunjuk hari lain yang masih kosong, pindah otomatis */
@@ -502,7 +691,7 @@
 
   /* ============ 4. EMOJI & LINK ============ */
   function viewAtur() {
-    return `<section class="card">
+    return `<div class="atur-grid"><section class="card">
         <div class="card-head"><h3>Emoji rekap</h3><button class="chip-btn" data-act="emo-random">🎲 Acak</button></div>
         <p class="muted small">Ganti kapan saja supaya grup tidak bosan. Berlaku di teks rekap WA dan halaman anggota.</p>
         <div class="epreview-wrap"><p class="eyebrow">Contoh hasil</p><pre class="epreview" id="epreview"></pre></div>
@@ -529,7 +718,7 @@
         <h3>Pengaturan lain</h3>
         <p class="muted small nomb">Jadwal, PIN admin, dan daftar anggota diatur langsung di Google Sheet (sheet <b>Pengaturan</b> &amp; <b>Anggota</b>).
           Anggota baru otomatis mendapat link saat halaman admin dimuat ulang.</p>
-      </section>`;
+      </section></div>`;
   }
   function waLinkFor(m) {
     const text = `Shalom ${m.nama} 🙏\nIni link pribadi untuk lapor baca Alkitab ${D.settings.namaKelompok}.\n` +
@@ -643,14 +832,29 @@
   }
 
   /* ============ event ============ */
+  function logout() {
+    ss.del(PIN_KEY); if (store2) T.cacheDel(DATA_KEY, store2); PIN = null; D = null;
+    RN_TEXT = {}; RN_DRAFT = {}; RN_FORCE = {}; RSEL = 0; ROLE = 'admin'; VIEWS = VIEWS_ADMIN; RECAP_EDIT = null;
+    if (MODAL) MODAL.close();
+    closeSheet();
+    renderLogin();
+  }
+
   document.addEventListener('click', async e => {
-    if (!D) { if (e.target.closest('[data-act="reload"]')) load(); return; }
     let el;
+    if ((el = e.target.closest('[data-act="side-toggle"]'))) {
+      const mini = document.documentElement.classList.toggle('side-mini');
+      T.store.set('tbf_side_mini', mini ? '1' : '0');
+      return syncSideToggle();
+    }
+    if (e.target.closest('[data-act="logout"]')) return logout();
+    if (!D) { if (e.target.closest('[data-act="reload"]')) load(); return; }
     if ((el = e.target.closest('[data-view]'))) {
       VIEW = el.dataset.view; T.store.set('tbf_admin_view', VIEW);
       renderAll(); window.scrollTo(0, 0); return;
     }
     if ((el = e.target.closest('[data-rsel]'))) return rnSelect(+el.dataset.rsel);
+    if ((el = e.target.closest('[data-fmt]'))) return rnInsert(el.dataset.fmt);
     if ((el = e.target.closest('[data-tick]'))) return toggleDay(el.dataset.tick, SEL);
     if ((el = e.target.closest('[data-mtick]'))) return MODAL_NAMA && toggleDay(MODAL_NAMA, +el.dataset.mtick);
     if ((el = e.target.closest('[data-cell]'))) { const i = el.dataset.cell.lastIndexOf('|'); return toggleDay(el.dataset.cell.slice(0, i), +el.dataset.cell.slice(i + 1)); }
@@ -669,9 +873,12 @@
       case 'latest': SEL = D.currentDay; renderDaybar(); renderView(); return;
       case 'reload': return load();
       case 'copy-recap': {
-        const ok = await T.copyText(document.getElementById('recap').value);
+        const box = el.closest('[data-rbox]'); const ta = box && box.querySelector('textarea');
+        const ok = await T.copyText(ta ? ta.value : recapText());
         return T.toast(ok ? 'Disalin! Tinggal tempel di grup WA' : 'Gagal menyalin, salin manual ya');
       }
+      case 'recap-sheet': return openSheet();
+      case 'recap-reset': RECAP_EDIT = null; { const ta = document.getElementById('recap'); if (ta) ta.value = autoRecap(); } return renderRecap();
       case 'emo-random': {
         const rnd = a => a[Math.floor(Math.random() * a.length)];
         const sudah = rnd(T.EMOJI_SUDAH);
@@ -690,11 +897,16 @@
         return rnSelect(nx.hari);
       }
       case 'rn-move': return rnMove(+el.dataset.h);
+      case 'rn-guide': T.openModal(rnGuideHtml()); return;
+      case 'rn-copywa': {
+        const ta = document.getElementById('rn-text'); if (!ta || !ta.value.trim()) return T.toast('Belum ada teks');
+        return T.toast((await T.copyText(T.rn.toWa(ta.value))) ? 'Versi WhatsApp disalin. Tinggal tempel di grup' : 'Gagal menyalin');
+      }
       case 'rn-force': RN_FORCE[RSEL] = true; return syncRn();
       case 'rn-save': return rnSave();
       case 'rn-preview': RN_PREVIEW = !RN_PREVIEW; {
-        const card = document.getElementById('rn-prev-card'); card.hidden = !RN_PREVIEW;
-        el.textContent = RN_PREVIEW ? 'Tutup pratinjau' : 'Pratinjau'; syncRn();
+        const card = document.getElementById('rn-prev-card'); card.classList.toggle('show', RN_PREVIEW);
+        el.textContent = RN_PREVIEW ? 'Tutup pratinjau' : 'Pratinjau'; el.setAttribute('aria-pressed', String(RN_PREVIEW)); syncRn();
         if (RN_PREVIEW) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } return;
       case 'rn-del':
@@ -710,9 +922,17 @@
       case 'reset-kode': if (askConfirm('reset:' + MODAL_NAMA)) return resetKode(MODAL_NAMA); return;
     }
   });
+  // tombol desain tidak mengambil fokus dari kotak teks (pilihan teks tetap)
+  document.addEventListener('mousedown', e => { if (e.target.closest('[data-fmt]')) e.preventDefault(); });
   document.addEventListener('input', e => {
     const t = e.target;
     if (t.id === 'rn-text') { RN_DRAFT[RSEL] = t.value; syncRn(); }
+    else if (t.id === 'recap' || t.id === 'recap-s') {
+      RECAP_EDIT = t.value === autoRecap() ? null : { hari: SEL, text: t.value };
+      syncWaLinks();
+      if (t.id === 'recap-s') { const a = document.getElementById('recap'); if (a) a.value = t.value; }
+      const note = document.getElementById('recap-note'); if (note && t.id === 'recap') renderRecap();
+    }
     else if (t.id === 'cq') { CQ = t.value; renderCList(); }
     else if (t.id === 'pq') { PQ = t.value; renderPBody(); }
     else if (t.dataset && t.dataset.ef) { EMO[t.dataset.ef] = t.value; syncEmoUI(true); }
@@ -724,12 +944,5 @@
       return;
     } if (e.target.id === 'psort') { SORT = e.target.value; renderPBody(); } });
   document.getElementById('btn-refresh').addEventListener('click', () => load(true));
-  document.getElementById('btn-logout').addEventListener('click', () => {
-    ss.del(PIN_KEY); if (store2) T.cacheDel(DATA_KEY, store2); PIN = null; D = null;
-    RN_TEXT = {}; RN_DRAFT = {}; RN_FORCE = {}; RSEL = 0; ROLE = 'admin'; VIEWS = VIEWS_ADMIN;
-    if (MODAL) MODAL.close();
-    renderLogin();
-  });
-
   boot();
 })();

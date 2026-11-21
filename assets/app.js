@@ -11,7 +11,7 @@
   const LATE_LIMIT = 10;
   const WA_DAYS = 14;         // jumlah bacaan terakhir yang bisa dipilih untuk dikirim ke WA
   const ACC_KEY = 'tbf_akun';
-  const APP_VERSI = '5.2';
+  const APP_VERSI = '6.1';
   const RN_FONTS = [15, 16, 17, 18, 20, 22, 24];   // ukuran huruf layar baca
   const RN_KEEP = 40;                               // renungan yang disimpan di HP
 
