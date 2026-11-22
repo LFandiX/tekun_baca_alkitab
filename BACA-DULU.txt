@@ -1,4 +1,4 @@
-UPDATE v6.2: tampilan halaman anggota baru + tombol mode terang/gelap
+UPDATE v6.2: tampilan halaman anggota baru + tombol mode terang/gelap (ukuran sudah dikecilkan)
 
 Paket ini lengkap (berisi juga perubahan 6.1), jadi aman disalin semua.
 Apps Script TIDAK perlu diubah. JANGAN menimpa config.js (tidak ada di paket ini).

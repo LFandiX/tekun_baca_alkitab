@@ -409,7 +409,7 @@
       ${!isToday ? '<p class="hero-note">Hari ini tidak ada jadwal baca.</p>' : ''}
       ${done
         ? `<div class="hero-done ${anim ? 'anim' : ''}"${animStyle} role="status">
-             <span class="hero-ok">${SVG.check(26)}</span>
+             <span class="hero-ok">${SVG.check(22)}</span>
              <span><b>${saving ? 'Menyimpan…' : 'Sudah dilaporkan'}</b><span>Terima kasih, tetap tekun!</span></span></div>
            <div class="hero-links ${anim ? 'anim' : ''}"${animStyle}>
              <button class="hero-link" data-act="undo" data-day="${cur}" ${saving ? 'disabled' : ''}>Batalkan laporan</button>
@@ -443,12 +443,12 @@
 
   /* --- 4. perjalanan: cincin per kitab --- */
   function ring(read, late, total) {
-    const S = 96, R = 42, C = 2 * Math.PI * R;
+    const S = 80, R = 36, C = 2 * Math.PI * R;
     const rd = C * Math.min(read, total) / total, lt = C * Math.min(late, total - read) / total;
     return `<span class="ring" aria-hidden="true"><svg width="${S}" height="${S}" viewBox="0 0 ${S} ${S}">
-        <circle class="ring-track" cx="48" cy="48" r="${R}"/>
-        ${lt ? `<circle class="ring-late" cx="48" cy="48" r="${R}" stroke-dasharray="${lt.toFixed(1)} ${C.toFixed(1)}" stroke-dashoffset="${(-rd).toFixed(1)}"/>` : ''}
-        ${rd ? `<circle class="ring-read" cx="48" cy="48" r="${R}" stroke-dasharray="${Math.max(rd - 1, .1).toFixed(1)} ${C.toFixed(1)}"/>` : ''}
+        <circle class="ring-track" cx="40" cy="40" r="${R}"/>
+        ${lt ? `<circle class="ring-late" cx="40" cy="40" r="${R}" stroke-dasharray="${lt.toFixed(1)} ${C.toFixed(1)}" stroke-dashoffset="${(-rd).toFixed(1)}"/>` : ''}
+        ${rd ? `<circle class="ring-read" cx="40" cy="40" r="${R}" stroke-dasharray="${Math.max(rd - 1, .1).toFixed(1)} ${C.toFixed(1)}"/>` : ''}
       </svg><span class="ring-mid"><b>${read}</b><small>dari ${total}</small></span></span>`;
   }
   function journeyCard(cur) {
