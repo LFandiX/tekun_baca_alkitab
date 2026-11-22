@@ -194,3 +194,71 @@ html[data-theme="dark"] .anggota .btn-secondary { border-color: var(--line); bac
 .anggota .theme-btn { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
 .anggota .theme-btn svg { width: 20px; height: 20px; }
 .anggota svg[width="22"] { width: 22px; height: 22px; }
+
+/* =====================================================================
+   GERAK — halus, singkat, sekali jalan. Hanya bagian yang berubah yang bergerak.
+   Mengikuti pengaturan HP: kalau animasi dimatikan, semuanya langsung (lihat style.css).
+   ===================================================================== */
+body.anggota { --ease-out: cubic-bezier(.2, .8, .2, 1); --ease-spring: cubic-bezier(.34, 1.45, .64, 1); }
+
+/* halaman pertama dibuka: kartu muncul berurutan dari bawah */
+.fx-intro > * { animation: masuk .5s var(--ease-out) both; }
+.fx-intro > :nth-child(2) { animation-delay: .05s; }
+.fx-intro > :nth-child(3) { animation-delay: .1s; }
+.fx-intro > :nth-child(4) { animation-delay: .15s; }
+.fx-intro > :nth-child(5) { animation-delay: .2s; }
+.fx-intro > :nth-child(6) { animation-delay: .25s; }
+.fx-intro > :nth-child(n+7) { animation-delay: .3s; }
+@keyframes masuk { from { opacity: 0; transform: translateY(12px); } }
+
+/* bagian yang dibuka (teman, Pilih lain, Caranya) */
+.fx-reveal { animation: buka .3s var(--ease-out) both; }
+@keyframes buka { from { opacity: 0; transform: translateY(-6px); } }
+
+/* kotak centang: membal kecil + garis centang tergambar */
+.late-row { transition: background-color .18s ease, border-color .18s ease, transform .12s ease; }
+.late-row:active { transform: scale(.985); }
+.late-row .box { transition: background-color .18s ease, border-color .18s ease; }
+.late-row .box svg path { stroke-dasharray: 24; stroke-dashoffset: 0; }
+.fx-pop .box { animation: centang .38s var(--ease-spring) both; }
+.fx-pop .box svg path { animation: tarik .28s .08s ease-out both; }
+@keyframes centang { from { transform: scale(.7); } }
+@keyframes tarik { from { stroke-dashoffset: 24; } }
+
+/* tombol Laporkan menyesuaikan jumlah */
+.fx-bump { animation: bump .32s var(--ease-out); }
+@keyframes bump { 40% { transform: scale(1.02); } }
+
+/* pesan WA berganti */
+.fx-swap { animation: ganti .26s ease-out; }
+@keyframes ganti { from { opacity: .35; transform: translateY(3px); } }
+
+/* baris yang sudah dilaporkan / saran yang ditutup: menyusut lalu hilang */
+.fx-leave { overflow: hidden; pointer-events: none; animation: pergi .32s var(--ease-out) forwards; }
+@keyframes pergi { to { opacity: 0; height: 0; margin-top: -8px; transform: translateX(14px); } }
+.tip-bar.fx-leave { animation-name: pergi-bar; }
+@keyframes pergi-bar { to { opacity: 0; height: 0; margin-bottom: 0; padding-top: 0; padding-bottom: 0; } }
+
+/* pita naik lagi saat laporan dibatalkan; tombol muncul kembali */
+.pita.fx-up { animation: pita-naik .45s var(--ease-out) both; }
+@keyframes pita-naik { from { height: 90px; } }
+.hero-btn.fx-reveal { animation-name: masuk; animation-duration: .38s; }
+
+/* cincin bergerak ke nilai baru */
+.ring-read, .ring-late { transition: stroke-dasharray .9s var(--ease-out), stroke-dashoffset .9s var(--ease-out); }
+
+/* layar baca renungan: keluar dengan turun pelan */
+.reader.closing { animation: readerOut .2s ease-in forwards; }
+@keyframes readerOut { to { opacity: 0; transform: translateY(16px); } }
+
+/* umpan balik saat diketuk */
+.text-btn, .hero-link, .tip-x, .board-sum, .anggota .chip-btn, .anggota .theme-btn { transition: opacity .15s ease, background-color .15s ease, transform .12s ease; }
+.text-btn:active, .hero-link:active, .tip-x:active { opacity: .55; }
+.board-sum:active { background: var(--surface-2); }
+.anggota .chip-btn:active, .anggota .theme-btn:active { transform: scale(.95); }
+.anggota .chip-btn .chev { transition: transform .2s var(--ease-out); }
+
+/* ganti tema: warna berpindah pelan, ikon berputar */
+html.theme-anim body, html.theme-anim body * { transition: background-color .35s ease, color .35s ease, border-color .35s ease !important; }
+.theme-btn.spin svg { animation: putar .5s var(--ease-out); }
+@keyframes putar { from { transform: rotate(-90deg) scale(.6); opacity: 0; } }

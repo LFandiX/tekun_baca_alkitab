@@ -643,9 +643,13 @@
   }
   function themeToggle() {
     const t = themeNow() === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', t);
+    const root = document.documentElement;
+    const calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!calm) { root.classList.add('theme-anim'); setTimeout(() => root.classList.remove('theme-anim'), 450); }
+    root.setAttribute('data-theme', t);
     try { localStorage.setItem(THEME_KEY, t); } catch (e) { /* mode privat */ }
     syncThemeBtns();
+    if (!calm) document.querySelectorAll('[data-act="theme"]').forEach(b => { b.classList.remove('spin'); void b.offsetWidth; b.classList.add('spin'); });
     return t;
   }
   document.addEventListener('click', e => { if (e.target.closest('[data-act="theme"]')) themeToggle(); });

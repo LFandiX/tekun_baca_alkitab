@@ -111,6 +111,9 @@ Hanya file website. Apps Script **tidak perlu** diubah (tetap versi 3.4).
 - **Perjalananmu**: cincin per kitab (hijau sudah dibaca, oranye tertinggal); kitab yang selesai diringkas satu baris.
 - Teman-teman, saran pasang di layar utama, dan **Kirim ke grup WA** (tetap paling bawah) dirapikan.
 - Ukuran huruf dan kartu dibuat seimbang (minimal 14 px), teks renungan memakai huruf biasa (tidak tebal). Mode gelap ikut disesuaikan.
+- **Animasi halus**: kartu muncul berurutan saat dibuka, kotak centang membal kecil, bacaan yang dilaporkan
+  menyusut lalu hilang, cincin Perjalanan bergerak ke angka baru, bagian yang dibuka muncul pelan,
+  layar renungan keluar pelan, dan pergantian tema memudar. Semua mati otomatis kalau animasi di HP dimatikan.
 - **Tombol terang/gelap** (ikon matahari/bulan) di kanan atas halaman anggota, dan di halaman admin
   (HP: bilah atas, laptop: menu samping). Pilihan disimpan di HP masing-masing; sebelum ditekan,
   tampilan mengikuti pengaturan HP.

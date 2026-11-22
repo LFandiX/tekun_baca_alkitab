@@ -24,6 +24,12 @@
   let READER = null;                         // layar baca renungan yang sedang terbuka
   let MARKED_AT = 0, MARKED_DAY = 0;         // kapan tombol "Sudah saya baca" ditekan (untuk animasi pita)
   let SHOW_TIP = false;                      // petunjuk pasang di layar utama dibuka?
+  /* animasi: hanya bagian yang baru berubah yang bergerak, sekali saja */
+  const FX = new Set();                      // kunci animasi untuk gambar berikutnya
+  const fx = (k, cls) => (FX.has(k) ? ' ' + (cls || 'fx-reveal') : '');
+  const CALM = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let INTRO = true;                          // kartu muncul berurutan saat halaman pertama dibuka
+  const RING_PREV = {};                      // nilai cincin sebelumnya (per kitab) → cincin bergerak dari situ
 
   /* ============ daftar akun di HP ini ============ */
   function accounts() {
@@ -389,7 +395,13 @@
     }
     if (!WA_SEL) WA_SEL = new Set([cur]);
     $app.innerHTML = todayCard(cur) + rnCard(cur) + lateCard(cur) + journeyCard(cur) + boardCard(cur) + installCard() + waCard(cur);
+    if (INTRO && !D._stale) {
+      INTRO = false;
+      if (!CALM()) { $app.classList.add('fx-intro'); setTimeout(() => $app.classList.remove('fx-intro'), 900); }
+    }
+    FX.clear();
     syncWa();
+    animateRings();
     renderBar();
   }
 
@@ -402,7 +414,7 @@
     const anim = done && MARKED_DAY === cur && since < PITA_MS;
     const animStyle = anim ? ` style="animation-delay:-${since}ms"` : '';
     return `<section class="card hero ${done ? 'is-done' : ''}" aria-labelledby="h-today">
-      <span class="pita ${done ? 'on' : ''} ${anim ? 'anim' : ''}"${animStyle} aria-hidden="true">${SVG.check(14, 3.2)}</span>
+      <span class="pita ${done ? 'on' : ''} ${anim ? 'anim' : ''}${fx('unmark', 'fx-up')}"${animStyle} aria-hidden="true">${SVG.check(14, 3.2)}</span>
       <p class="hero-lbl">${isToday ? 'Bacaan hari ini' : 'Bacaan terakhir'}</p>
       <h2 class="hero-read" id="h-today">${dash(r.bacaan)}</h2>
       <p class="hero-date">${fmtPanjang(r.tanggal)}</p>
@@ -414,7 +426,7 @@
            <div class="hero-links ${anim ? 'anim' : ''}"${animStyle}>
              <button class="hero-link" data-act="undo" data-day="${cur}" ${saving ? 'disabled' : ''}>Batalkan laporan</button>
              <button class="hero-link strong" data-act="go-wa">Kirim ke WA ${SVG.down}</button></div>`
-        : `<button class="hero-btn" data-act="mark" data-day="${cur}" ${saving ? 'disabled' : ''}>${SVG.circleCheck} Sudah saya baca</button>`}
+        : `<button class="hero-btn${fx('unmark')}" data-act="mark" data-day="${cur}" ${saving ? 'disabled' : ''}>${SVG.circleCheck} Sudah saya baca</button>`}
     </section>`;
   }
 
@@ -431,25 +443,57 @@
           <p class="card-sub">Centang yang sudah kamu baca, lalu tekan Laporkan.</p></div>
         <button class="text-btn" data-act="pick-all">${allPicked ? 'Batal pilih' : 'Pilih semua'}</button></div>
       <ul class="late-list">${shown.map(d => `
-        <li><button class="late-row ${PICK.has(d) ? 'on' : ''}" data-pick="${d}" aria-pressed="${PICK.has(d)}" ${PENDING.has(d) ? 'disabled' : ''}>
+        <li data-late="${d}"><button class="late-row ${PICK.has(d) ? 'on' : ''}${fx('pick:' + d, 'fx-pop')}" data-pick="${d}" aria-pressed="${PICK.has(d)}" ${PENDING.has(d) ? 'disabled' : ''}>
           <span class="box" aria-hidden="true">${SVG.check(16, 3)}</span>
           <span class="lr-main">${dash(BY[d].bacaan)}</span>
           <span class="lr-sub">${T.fmtTanggal(BY[d].tanggal, { short: true })}</span>
         </button></li>`).join('')}</ul>
       ${late.length > shown.length ? `<button class="text-btn mt-s" data-act="show-all-late">Tampilkan semua (${late.length})</button>` : ''}
-      <button class="btn-primary btn-wide late-go" data-act="mark-picked" ${n ? '' : 'disabled'}>${n ? `Laporkan ${n} bacaan` : 'Centang dulu bacaannya'}</button>
+      <button class="btn-primary btn-wide late-go${fx('pickcount', 'fx-bump')}" data-act="mark-picked" ${n ? '' : 'disabled'}>${n ? `Laporkan ${n} bacaan` : 'Centang dulu bacaannya'}</button>
     </section>`;
   }
 
   /* --- 4. perjalanan: cincin per kitab --- */
-  function ring(read, late, total) {
+  function ring(read, late, total, key) {
     const S = 80, R = 36, C = 2 * Math.PI * R;
-    const rd = C * Math.min(read, total) / total, lt = C * Math.min(late, total - read) / total;
+    const arcs = (r, l) => {
+      const rd = C * Math.min(r, total) / total, lt = C * Math.min(l, total - r) / total;
+      return { read: `${Math.max(rd - 1, 0).toFixed(1)} ${C.toFixed(1)}`, late: `${lt.toFixed(1)} ${C.toFixed(1)}`, off: (-rd).toFixed(1) };
+    };
+    const now = arcs(read, late);
+    // pertama kali: mulai dari kosong; berikutnya: dari nilai sebelumnya → hanya yang berubah yang bergerak
+    const prev = RING_PREV[key] || { read: 0, late: 0 };
+    RING_PREV[key] = { read, late };
+    const was = arcs(prev.read, prev.late);
+    const moving = !CALM() && (prev.read !== read || prev.late !== late);
+    const from = moving ? was : now;
+    const dt = (a, b) => (moving ? ` data-to="${a}"` : '') + (b !== undefined && moving ? ` data-to-off="${b}"` : '');
     return `<span class="ring" aria-hidden="true"><svg width="${S}" height="${S}" viewBox="0 0 ${S} ${S}">
         <circle class="ring-track" cx="40" cy="40" r="${R}"/>
-        ${lt ? `<circle class="ring-late" cx="40" cy="40" r="${R}" stroke-dasharray="${lt.toFixed(1)} ${C.toFixed(1)}" stroke-dashoffset="${(-rd).toFixed(1)}"/>` : ''}
-        ${rd ? `<circle class="ring-read" cx="40" cy="40" r="${R}" stroke-dasharray="${Math.max(rd - 1, .1).toFixed(1)} ${C.toFixed(1)}"/>` : ''}
-      </svg><span class="ring-mid"><b>${read}</b><small>dari ${total}</small></span></span>`;
+        <circle class="ring-late" cx="40" cy="40" r="${R}" style="stroke-dasharray:${from.late};stroke-dashoffset:${from.off}"${dt(now.late, now.off)}/>
+        <circle class="ring-read" cx="40" cy="40" r="${R}" style="stroke-dasharray:${from.read}"${dt(now.read)}/>
+      </svg><span class="ring-mid"><b${moving ? ` data-count="${prev.read}" data-count-to="${read}"` : ''}>${moving ? prev.read : read}</b><small>dari ${total}</small></span></span>`;
+  }
+  /** jalankan gerak cincin & angka setelah kartu digambar */
+  function animateRings() {
+    const els = $app.querySelectorAll('[data-to]');
+    const nums = $app.querySelectorAll('[data-count-to]');
+    if (!els.length && !nums.length) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      els.forEach(c => {
+        c.style.strokeDasharray = c.dataset.to;
+        if (c.dataset.toOff) c.style.strokeDashoffset = c.dataset.toOff;
+      });
+      nums.forEach(b => {
+        const a = +b.dataset.count, z = +b.dataset.countTo, t0 = performance.now(), dur = 700;
+        const step = t => {
+          const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+          b.textContent = Math.round(a + (z - a) * e);
+          if (k < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      });
+    }));
   }
   function journeyCard(cur) {
     const K = T.KITAB, idx = {};
@@ -476,7 +520,7 @@
       const tot = K[b][2], r = read[b] || 0, l = late[b] || 0;
       const pill = l ? `<span class="pill-late">Tertinggal ${l} pasal</span>` : '<span class="pill-ok">Tepat waktu</span>';
       return `<div class="jrow" role="img" aria-label="${T.esc(K[b][0])}: ${r} dari ${tot} pasal sudah dibaca${l ? ', tertinggal ' + l + ' pasal' : ''}">
-        ${ring(r, l, tot)}
+        ${ring(r, l, tot, b)}
         <div><div class="j-name">${T.esc(K[b][0])}</div><div class="j-sub">pasal sudah dibaca</div>${pill}</div></div>`;
     }).join('');
     // kitab yang sudah selesai: satu baris ringkas
@@ -506,7 +550,7 @@
   function boardCard(cur) {
     const b = D.board; const sudah = b.filter(x => !x.belum); const n = sudah.length;
     const faces = sudah.slice(0, 3).map(x => avatar(x.nama, 'av-sm')).join('') + (n > 3 ? `<span class="avatar av-sm av-more" aria-hidden="true">+${n - 3}</span>` : '');
-    const list = SHOW_BOARD ? `<ul class="board-list">${b.map(x => `
+    const list = SHOW_BOARD ? `<ul class="board-list${fx('board')}">${b.map(x => `
       <li class="${x.belum ? 'late' : 'ok'} ${x.nama === D.me.nama ? 'me' : ''}">
         <span>${T.esc(x.nama)}${x.nama === D.me.nama ? ' (kamu)' : ''}</span>
         <span class="b-status">${x.belum ? T.esc(BY[x.belum].singkat) : 'Sudah ' + T.esc(D.settings.emojiSudah)}</span></li>`).join('')}</ul>` : '';
@@ -526,7 +570,7 @@
       <div class="tip-row">${SVG.phone}
         <span class="tip-txt">Pasang di layar utama HP. <button class="text-btn inline" data-act="tip-how" aria-expanded="${SHOW_TIP}">Caranya</button></span>
         <button class="tip-x" data-act="tip-off" aria-label="Tutup saran">${SVG.x}</button></div>
-      ${SHOW_TIP ? `<p class="tip-how">${ios
+      ${SHOW_TIP ? `<p class="tip-how${fx('tip')}">${ios
         ? 'Di Safari, tekan tombol <b>Bagikan</b> lalu pilih <b>Tambah ke Layar Utama</b>.'
         : 'Di Chrome, tekan menu <b>⋮</b> lalu pilih <b>Tambahkan ke layar utama</b>.'} Besok tinggal buka seperti aplikasi.</p>` : ''}
     </section>`;
@@ -611,8 +655,10 @@
   function rnClose(fromPop) {
     if (!READER) return;
     const pushed = READER.pushed;
-    READER.el.remove(); READER = null;
+    const el = READER.el; READER = null;
     document.body.classList.remove('no-scroll');
+    if (CALM()) el.remove();
+    else { el.classList.add('closing'); el.addEventListener('animationend', () => el.remove(), { once: true }); setTimeout(() => el.remove(), 400); }
     if (pushed && !fromPop) { try { history.back(); } catch (e) { /* abaikan */ } }
   }
 
@@ -701,11 +747,11 @@
     const days = [];
     for (let d = cur; d >= Math.max(1, cur - WA_DAYS + 1); d--) days.push(d);
     const isDefault = WA_SEL.size === 1 && WA_SEL.has(cur);
-    const more = WA_MORE ? `<div class="wa-more">
+    const more = WA_MORE ? `<div class="wa-more${fx('wa-more')}">
         <p class="card-sub">Centang bacaan yang mau dikirim. Bacaan yang berurutan otomatis digabung.</p>
         <ul class="late-list">${days.map(d => {
           const on = WA_SEL.has(d); const done = DONE.has(d);
-          return `<li><button class="late-row ${on ? 'on' : ''}" data-wa="${d}" aria-pressed="${on}">
+          return `<li><button class="late-row ${on ? 'on' : ''}${fx('wa:' + d, 'fx-pop')}" data-wa="${d}" aria-pressed="${on}">
             <span class="box" aria-hidden="true">${SVG.check(16, 3)}</span>
             <span class="lr-main">${dash(BY[d].bacaan)}<small class="${done ? 'st-ok' : 'st-no'}">${d === cur ? 'Hari ini, ' : T.fmtTanggal(BY[d].tanggal, { short: true }) + ', '}${done ? 'sudah ditandai' : 'belum ditandai'}</small></span>
           </button></li>`;
@@ -721,7 +767,7 @@
       <div class="card-top"><h3 class="card-title" id="h-wa">Kirim ke grup WA</h3>
         <button class="chip-btn" data-act="wa-more" aria-expanded="${WA_MORE}">${WA_MORE ? 'Tutup' : 'Pilih lain'} ${SVG.chev}</button></div>
       ${more}
-      <div class="wa-bubble-wrap"><pre class="wa-preview" id="wa-preview" aria-label="Pesan yang akan dikirim"></pre></div>
+      <div class="wa-bubble-wrap"><pre class="wa-preview${fx('wa-text', 'fx-swap')}" id="wa-preview" aria-label="Pesan yang akan dikirim"></pre></div>
       <p class="wa-warn" id="wa-warn" hidden></p>
       <div class="row-btns">
         <button class="btn-secondary" data-act="wa-copy">Salin</button>
@@ -839,14 +885,16 @@
     const pk = e.target.closest('[data-pick]');
     if (pk) {
       const d = +pk.dataset.pick;
-      if (PICK.has(d)) PICK.delete(d); else PICK.add(d);
+      if (PICK.has(d)) PICK.delete(d); else { PICK.add(d); FX.add('pick:' + d); }
+      FX.add('pickcount');
       T.haptic(8);
       return render();
     }
     const wc = e.target.closest('[data-wa]');
     if (wc) {
       const d = +wc.dataset.wa;
-      if (WA_SEL.has(d)) WA_SEL.delete(d); else WA_SEL.add(d);
+      if (WA_SEL.has(d)) WA_SEL.delete(d); else { WA_SEL.add(d); FX.add('wa:' + d); }
+      FX.add('wa-text');
       T.haptic(6);
       return rerenderWa();
     }
@@ -856,8 +904,16 @@
     if (!a) return;
     switch (a.dataset.act) {
       case 'mark': MARKED_AT = Date.now(); MARKED_DAY = +a.dataset.day; return lapor([+a.dataset.day], true);
-      case 'undo': return lapor([+a.dataset.day], false);
-      case 'mark-picked': return lapor(Array.from(PICK).sort((x, y) => x - y), true);
+      case 'undo': FX.add('unmark'); return lapor([+a.dataset.day], false);
+      case 'mark-picked': {
+        // baris yang dilaporkan menyusut & hilang dulu, baru kartu diperbarui
+        const days = Array.from(PICK).sort((x, y) => x - y);
+        const rows = days.map(d => $app.querySelector(`[data-late="${d}"]`)).filter(Boolean);
+        if (CALM() || !rows.length) return lapor(days, true);
+        rows.forEach(li => { li.style.height = li.offsetHeight + 'px'; li.classList.add('fx-leave'); });
+        a.disabled = true;
+        return setTimeout(() => lapor(days, true), 320);
+      }
       case 'clear-pick': PICK.clear(); return render();
       case 'pick-all': {
         const late = lateDays(D.currentDay);
@@ -865,9 +921,14 @@
         return render();
       }
       case 'show-all-late': SHOW_ALL_LATE = true; return render();
-      case 'board': SHOW_BOARD = !SHOW_BOARD; return render();
-      case 'tip-off': T.store.set('tbf_tip_off', '1'); return render();
-      case 'tip-how': SHOW_TIP = !SHOW_TIP; return render();
+      case 'board': SHOW_BOARD = !SHOW_BOARD; if (SHOW_BOARD) FX.add('board'); return render();
+      case 'tip-off': {
+        const bar = a.closest('.tip-bar');
+        if (CALM() || !bar) { T.store.set('tbf_tip_off', '1'); return render(); }
+        bar.style.height = bar.offsetHeight + 'px'; bar.classList.add('fx-leave');
+        return setTimeout(() => { T.store.set('tbf_tip_off', '1'); render(); }, 300);
+      }
+      case 'tip-how': SHOW_TIP = !SHOW_TIP; if (SHOW_TIP) FX.add('tip'); return render();
       case 'reload': return boot();
       case 'rn-open': return rnOpen(+a.dataset.h);
       case 'go-wa': { const c = document.getElementById('wa-card'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
@@ -877,8 +938,8 @@
       }
       case 'wa-send': if (!waText()) { e.preventDefault(); T.toast('Pilih bacaan dulu'); } return;
       case 'wa-mark': return lapor(Array.from(WA_SEL).filter(d => !DONE.has(d)), true);
-      case 'wa-more': WA_MORE = !WA_MORE; return rerenderWa();
-      case 'wa-reset': WA_SEL = new Set([D.currentDay]); return rerenderWa();
+      case 'wa-more': WA_MORE = !WA_MORE; if (WA_MORE) FX.add('wa-more'); return rerenderWa();
+      case 'wa-reset': WA_SEL = new Set([D.currentDay]); FX.add('wa-text'); return rerenderWa();
       case 'add-open': MENU_ADD = true; MENU_DEL = null; return renderMenu({ focus: true });
       case 'add-cancel': MENU_ADD = false; return renderMenu();
     }
@@ -888,6 +949,7 @@
     const old = document.getElementById('wa-card'); if (!old || !D) return;
     const tmp = document.createElement('div'); tmp.innerHTML = waCard(D.currentDay);
     old.replaceWith(tmp.firstElementChild);
+    FX.clear();
     syncWa();
   }
 
