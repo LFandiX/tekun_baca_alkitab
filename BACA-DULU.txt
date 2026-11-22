@@ -1,12 +1,11 @@
-UPDATE v6.1 = gabungan v5.2 (jadwal tepat 2 pasal) + v6 (tampilan admin baru) + desain renungan
+UPDATE v6.2: tampilan halaman anggota baru + tombol mode terang/gelap
+
+Paket ini lengkap (berisi juga perubahan 6.1), jadi aman disalin semua.
+Apps Script TIDAK perlu diubah. JANGAN menimpa config.js (tidak ada di paket ini).
 
 File:
   index.html, admin.html, README.md
-  assets/app.js, assets/admin.js, assets/admin.css (BARU), assets/common.js, assets/style.css
-  apps-script/Code.gs (versi 3.4)
-
-JANGAN menimpa config.js (tidak ada di paket ini).
-
-Apps Script: kalau /exec Anda belum menampilkan "versi":3.4, tempel Code.gs, Save,
-Deploy > Manage deployments > edit > New version > Deploy, lalu di Google Sheet
-refresh dan jalankan menu 📖 Tekun Baca > Ratakan jadwal ke depan.
+  assets/app.js, assets/admin.js, assets/admin.css, assets/anggota.css (BARU),
+  assets/common.js, assets/style.css
+  apps-script/Code.gs (sama dengan versi 3.4, hanya arsip)
+  tools/tema.py (alat bantu untuk pengembang, tidak dipakai website)

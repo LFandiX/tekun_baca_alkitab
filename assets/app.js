@@ -11,7 +11,7 @@
   const LATE_LIMIT = 10;
   const WA_DAYS = 14;         // jumlah bacaan terakhir yang bisa dipilih untuk dikirim ke WA
   const ACC_KEY = 'tbf_akun';
-  const APP_VERSI = '6.1';
+  const APP_VERSI = '6.2';
   const RN_FONTS = [15, 16, 17, 18, 20, 22, 24];   // ukuran huruf layar baca
   const RN_KEEP = 40;                               // renungan yang disimpan di HP
 
@@ -22,6 +22,8 @@
   let MENU = null, MENU_ADD = false, MENU_DEL = null, ADDING = false;
   let RN_MEM = {};                           // renungan yang sudah dimuat: hari → { hari, teks, v }
   let READER = null;                         // layar baca renungan yang sedang terbuka
+  let MARKED_AT = 0, MARKED_DAY = 0;         // kapan tombol "Sudah saya baca" ditekan (untuk animasi pita)
+  let SHOW_TIP = false;                      // petunjuk pasang di layar utama dibuka?
 
   /* ============ daftar akun di HP ini ============ */
   function accounts() {
@@ -152,7 +154,8 @@
     DONE = new Set(D.done);
     PICK.forEach(d => { if (DONE.has(d)) PICK.delete(d); });
     if (D.me && KODE) upsertAccount(KODE, D.me.nama);
-    document.getElementById('group-name').textContent = D.settings.namaKelompok;
+    document.getElementById('hello').textContent = 'Shalom, ' + D.me.nama;
+    const gn = document.getElementById('group-name'); gn.textContent = D.settings.namaKelompok; gn.hidden = false;
     document.title = D.me.nama + ' · ' + D.settings.namaKelompok;
     render();
     renderAcct();
@@ -359,108 +362,173 @@
   /* ============ halaman utama ============ */
   function lateDays(cur) { const a = []; for (let d = 1; d < cur; d++) if (!DONE.has(d)) a.push(d); return a; }
 
+  const BULAN_PANJANG = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  const fmtPanjang = ymd => { const p = ymd.split('-').map(Number); return T.dayName(ymd) + ', ' + p[2] + ' ' + BULAN_PANJANG[p[1] - 1]; };
+  const dash = t => T.esc(t).replace(/(\d)-(\d)/g, '$1–$2');
+  const SVG = {
+    check: (s, w) => `<svg aria-hidden="true" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w || 2.6}" stroke-linecap="round" stroke-linejoin="round"><path d="m6 12.5 4 4 8-9"/></svg>`,
+    circleCheck: '<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="m7.8 12.3 2.8 2.8 5.6-6"/></svg>',
+    down: '<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>',
+    right: '<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>',
+    chev: '<svg aria-hidden="true" class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+    book: '<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6c-2-1.5-5-2-8-1.5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5v-13c-3-.5-6 0-8 1.5zM12 6v13"/></svg>',
+    phone: '<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M12 8v6M9 11h6"/></svg>',
+    x: '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  };
+
   function render() {
     if (!D) return;
     const cur = D.currentDay;
     if (!cur) {
       const f = D.schedule[0];
-      $app.innerHTML = `<section class="card today"><p class="eyebrow">Shalom, ${T.esc(D.me.nama)} 👋</p>
-        <h2 class="reading">${f ? T.esc(f.bacaan) : 'Belum ada jadwal'}</h2>
-        <p class="note">${f ? 'Pembacaan dimulai ' + T.fmtTanggal(f.tanggal) + '.' : 'Admin belum membuat jadwal.'}</p></section>`;
+      $app.innerHTML = `<section class="card hero"><span class="pita" aria-hidden="true"></span>
+        <p class="hero-lbl">Pembacaan belum dimulai</p>
+        <h2 class="hero-read">${f ? dash(f.bacaan) : 'Belum ada jadwal'}</h2>
+        <p class="hero-date">${f ? 'Mulai ' + fmtPanjang(f.tanggal) : 'Admin belum membuat jadwal.'}</p></section>`;
       return renderBar();
     }
     if (!WA_SEL) WA_SEL = new Set([cur]);
-    $app.innerHTML = todayCard(cur) + rnCard(cur) + lateCard(cur) + progressCard(cur) + boardCard(cur) + installCard() + waCard(cur);
+    $app.innerHTML = todayCard(cur) + rnCard(cur) + lateCard(cur) + journeyCard(cur) + boardCard(cur) + installCard() + waCard(cur);
     syncWa();
     renderBar();
   }
 
+  /* --- 1. kartu hijau: bacaan hari ini + pita merah --- */
+  const PITA_MS = 1100;
   function todayCard(cur) {
     const r = BY[cur]; const isToday = r.tanggal === D.today; const done = DONE.has(cur); const saving = PENDING.has(cur);
-    return `<section class="card today ${done ? 'is-done' : ''}">
-      <p class="eyebrow">Shalom, ${T.esc(D.me.nama)} 👋</p>
-      <p class="today-date">${isToday ? 'Bacaan hari ini' : 'Bacaan terakhir'} · ${T.fmtTanggal(r.tanggal)}</p>
-      <h2 class="reading">${T.esc(r.bacaan)}</h2>
-      ${!isToday ? '<p class="note">Hari ini tidak ada jadwal baca.</p>' : ''}
+    // animasi pita hanya sesaat setelah tombol ditekan; kalau kartu digambar ulang di tengah animasi, animasinya dilanjutkan
+    const since = Date.now() - MARKED_AT;
+    const anim = done && MARKED_DAY === cur && since < PITA_MS;
+    const animStyle = anim ? ` style="animation-delay:-${since}ms"` : '';
+    return `<section class="card hero ${done ? 'is-done' : ''}" aria-labelledby="h-today">
+      <span class="pita ${done ? 'on' : ''} ${anim ? 'anim' : ''}"${animStyle} aria-hidden="true">${SVG.check(14, 3.2)}</span>
+      <p class="hero-lbl">${isToday ? 'Bacaan hari ini' : 'Bacaan terakhir'}</p>
+      <h2 class="hero-read" id="h-today">${dash(r.bacaan)}</h2>
+      <p class="hero-date">${fmtPanjang(r.tanggal)}</p>
+      ${!isToday ? '<p class="hero-note">Hari ini tidak ada jadwal baca.</p>' : ''}
       ${done
-        ? `<div class="done-state"><span class="done-mark" aria-hidden="true">${T.esc(D.settings.emojiSudah)}</span>
-             <div><strong>${saving ? 'Menyimpan…' : 'Sudah dilaporkan'}</strong><span>Terima kasih, tetap tekun! 🙏</span></div></div>
-           <div class="today-actions">
-             <button class="link-btn" data-act="undo" data-day="${cur}" ${saving ? 'disabled' : ''}>Batalkan laporan</button>
-             <button class="link-btn" data-act="go-wa">Kirim ke WA ↓</button></div>`
-        : `<button class="btn-big btn-light" data-act="mark" data-day="${cur}" ${saving ? 'disabled' : ''}>
-             <span class="tick" aria-hidden="true">✓</span> Sudah saya baca</button>`}
+        ? `<div class="hero-done ${anim ? 'anim' : ''}"${animStyle} role="status">
+             <span class="hero-ok">${SVG.check(26)}</span>
+             <span><b>${saving ? 'Menyimpan…' : 'Sudah dilaporkan'}</b><span>Terima kasih, tetap tekun!</span></span></div>
+           <div class="hero-links ${anim ? 'anim' : ''}"${animStyle}>
+             <button class="hero-link" data-act="undo" data-day="${cur}" ${saving ? 'disabled' : ''}>Batalkan laporan</button>
+             <button class="hero-link strong" data-act="go-wa">Kirim ke WA ${SVG.down}</button></div>`
+        : `<button class="hero-btn" data-act="mark" data-day="${cur}" ${saving ? 'disabled' : ''}>${SVG.circleCheck} Sudah saya baca</button>`}
     </section>`;
   }
 
+  /* --- 3. tertinggal: satu kolom, selalu terbuka, tombol Laporkan di dalam kartu --- */
   function lateCard(cur) {
     const late = lateDays(cur);
     if (!late.length) return '';
     const shown = SHOW_ALL_LATE ? late : late.slice(0, LATE_LIMIT);
     const allPicked = late.every(d => PICK.has(d));
-    return `<section class="card">
-      <div class="card-head"><h3>Masih perlu dikejar <span class="pill warn">${late.length}</span></h3>
-        <button class="chip-btn" data-act="pick-all">${allPicked ? 'Batal pilih' : 'Pilih semua'}</button></div>
-      <p class="muted small">Ketuk bacaan yang sudah kamu kejar, lalu tekan Laporkan di bawah.</p>
-      <ul class="check-list">${shown.map(d => `
-        <li><button class="check ${PICK.has(d) ? 'on' : ''}" data-pick="${d}" aria-pressed="${PICK.has(d)}" ${PENDING.has(d) ? 'disabled' : ''}>
-          <span class="box" aria-hidden="true"></span>
-          <span class="cl-main">${T.esc(BY[d].bacaan)}</span>
-          <span class="cl-sub">${T.fmtTanggal(BY[d].tanggal, { short: true })}</span>
+    const n = late.filter(d => PICK.has(d)).length;
+    return `<section class="card" aria-labelledby="h-late">
+      <div class="card-top"><div>
+          <h3 class="card-title" id="h-late">Tertinggal ${late.length} bacaan</h3>
+          <p class="card-sub">Centang yang sudah kamu baca, lalu tekan Laporkan.</p></div>
+        <button class="text-btn" data-act="pick-all">${allPicked ? 'Batal pilih' : 'Pilih semua'}</button></div>
+      <ul class="late-list">${shown.map(d => `
+        <li><button class="late-row ${PICK.has(d) ? 'on' : ''}" data-pick="${d}" aria-pressed="${PICK.has(d)}" ${PENDING.has(d) ? 'disabled' : ''}>
+          <span class="box" aria-hidden="true">${SVG.check(16, 3)}</span>
+          <span class="lr-main">${dash(BY[d].bacaan)}</span>
+          <span class="lr-sub">${T.fmtTanggal(BY[d].tanggal, { short: true })}</span>
         </button></li>`).join('')}</ul>
-      ${late.length > shown.length ? `<button class="link-btn" data-act="show-all-late">Tampilkan semua (${late.length})</button>` : ''}
+      ${late.length > shown.length ? `<button class="text-btn mt-s" data-act="show-all-late">Tampilkan semua (${late.length})</button>` : ''}
+      <button class="btn-primary btn-wide late-go" data-act="mark-picked" ${n ? '' : 'disabled'}>${n ? `Laporkan ${n} bacaan` : 'Centang dulu bacaannya'}</button>
     </section>`;
   }
 
-  function progressCard(cur) {
-    const n = T.countDone(DONE, cur);
-    const pct = Math.round((n / cur) * 100);
-    const pasal = T.pasalDone(DONE, BY, cur);
-    let d = DONE.has(cur) ? cur : cur - 1, streak = 0;
-    while (d >= 1 && DONE.has(d)) { streak++; d--; }
-    const from = Math.max(1, cur - 13);
-    let cells = '';
-    for (let x = from; x <= cur; x++) {
-      const s = BY[x]; const ok = DONE.has(x);
-      cells += `<div class="hcell ${ok ? 'ok' : ''} ${x === cur ? 'cur' : ''}" title="${T.esc(s.bacaan)}">
-        <span class="hdate">${T.fmtShort(s.tanggal)}</span><span class="hdot">${ok ? '✓' : ''}</span></div>`;
+  /* --- 4. perjalanan: cincin per kitab --- */
+  function ring(read, late, total) {
+    const S = 96, R = 42, C = 2 * Math.PI * R;
+    const rd = C * Math.min(read, total) / total, lt = C * Math.min(late, total - read) / total;
+    return `<span class="ring" aria-hidden="true"><svg width="${S}" height="${S}" viewBox="0 0 ${S} ${S}">
+        <circle class="ring-track" cx="48" cy="48" r="${R}"/>
+        ${lt ? `<circle class="ring-late" cx="48" cy="48" r="${R}" stroke-dasharray="${lt.toFixed(1)} ${C.toFixed(1)}" stroke-dashoffset="${(-rd).toFixed(1)}"/>` : ''}
+        ${rd ? `<circle class="ring-read" cx="48" cy="48" r="${R}" stroke-dasharray="${Math.max(rd - 1, .1).toFixed(1)} ${C.toFixed(1)}"/>` : ''}
+      </svg><span class="ring-mid"><b>${read}</b><small>dari ${total}</small></span></span>`;
+  }
+  function journeyCard(cur) {
+    const K = T.KITAB, idx = {};
+    K.forEach((k, i) => { idx[k[0].toLowerCase()] = i; });
+    const read = {}, late = {}, todayBooks = [];
+    for (let h = 1; h <= cur; h++) {
+      const segs = BY[h] && parseBacaan(BY[h].bacaan); if (!segs) continue;
+      segs.forEach(p => {
+        const b = idx[p.kitab.toLowerCase()]; if (b === undefined) return;
+        const n = p.z - p.a + 1;
+        if (DONE.has(h)) read[b] = (read[b] || 0) + n;
+        else if (h < cur) late[b] = (late[b] || 0) + n;
+        if (h === cur && todayBooks.indexOf(b) < 0) todayBooks.push(b);
+      });
     }
-    return `<section class="card">
-      <div class="card-head"><h3>Progres kamu</h3><span class="muted small">${n}/${cur} bacaan</span></div>
-      <div class="stats-row">
-        <div class="stat"><span class="stat-num">${pct}%</span><span class="stat-label">sesuai jadwal</span></div>
-        <div class="stat"><span class="stat-num">${pasal}</span><span class="stat-label">pasal dibaca</span></div>
-        <div class="stat"><span class="stat-num">${streak}</span><span class="stat-label">beruntun</span></div>
-      </div>
-      <div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div>
-      <p class="eyebrow mt">${cur - from + 1} bacaan terakhir</p>
-      <div class="hgrid">${cells}</div>
+    const lateBooks = Object.keys(late).map(Number).sort((a, b) => a - b);
+    let show = Array.from(new Set(lateBooks.concat(todayBooks))).sort((a, b) => a - b);
+    let hidden = 0;
+    if (show.length > 3) {   // terlalu banyak: kitab tertinggal paling awal + kitab hari ini
+      const keep = Array.from(new Set([lateBooks[0]].concat(todayBooks))).sort((a, b) => a - b);
+      hidden = show.length - keep.length; show = keep;
+    }
+    const rows = show.map(b => {
+      const tot = K[b][2], r = read[b] || 0, l = late[b] || 0;
+      const pill = l ? `<span class="pill-late">Tertinggal ${l} pasal</span>` : '<span class="pill-ok">Tepat waktu</span>';
+      return `<div class="jrow" role="img" aria-label="${T.esc(K[b][0])}: ${r} dari ${tot} pasal sudah dibaca${l ? ', tertinggal ' + l + ' pasal' : ''}">
+        ${ring(r, l, tot)}
+        <div><div class="j-name">${T.esc(K[b][0])}</div><div class="j-sub">pasal sudah dibaca</div>${pill}</div></div>`;
+    }).join('');
+    // kitab yang sudah selesai: satu baris ringkas
+    const fin = K.map((k, i) => i).filter(i => (read[i] || 0) >= K[i][2]);
+    let finTxt = '';
+    if (fin.length) {
+      const nt = fin.filter(i => i >= 39).length, otAll = fin.filter(i => i < 39).length === 39;
+      const contiguous = fin.every((v, i) => v === fin[0] + i);
+      if (fin.length === 66) finTxt = 'Seluruh Alkitab selesai!';
+      else if (otAll) finTxt = 'Perjanjian Lama selesai' + (nt ? `, dan ${nt} kitab Perjanjian Baru` : ' (39 kitab)');
+      else if (fin.length <= 2) finTxt = 'Kitab selesai: ' + fin.map(i => K[i][0]).join(', ');
+      else finTxt = `${fin.length} kitab selesai` + (contiguous ? `, ${K[fin[0]][0]} sampai ${K[fin[fin.length - 1]][0]}` : '');
+    }
+    const fu = T.firstUnread(DONE, cur - 1);
+    const fs = fu && BY[fu] ? parseBacaan(BY[fu].bacaan) : null;
+    const n = T.countDone(DONE, cur);
+    return `<section class="card" aria-labelledby="h-jalan">
+      <div class="card-top"><h3 class="card-title" id="h-jalan">Perjalananmu</h3><span class="card-meta">${n} dari ${cur} bacaan</span></div>
+      <div class="jlist">${rows}</div>
+      ${hidden ? `<p class="j-more">+${hidden} kitab lain juga tertinggal</p>` : ''}
+      ${fs ? `<p class="j-foot">Mulai lagi dari <b>${T.esc(fs[0].kitab)} ${fs[0].a}</b>.</p>` : ''}
+      ${finTxt ? `<p class="j-fin">${SVG.check(18)}${T.esc(finTxt)}</p>` : ''}
     </section>`;
   }
 
+  /* --- 5. teman-teman --- */
   function boardCard(cur) {
-    const b = D.board; const n = b.filter(x => !x.belum).length;
+    const b = D.board; const sudah = b.filter(x => !x.belum); const n = sudah.length;
+    const faces = sudah.slice(0, 3).map(x => avatar(x.nama, 'av-sm')).join('') + (n > 3 ? `<span class="avatar av-sm av-more" aria-hidden="true">+${n - 3}</span>` : '');
     const list = SHOW_BOARD ? `<ul class="board-list">${b.map(x => `
       <li class="${x.belum ? 'late' : 'ok'} ${x.nama === D.me.nama ? 'me' : ''}">
         <span>${T.esc(x.nama)}${x.nama === D.me.nama ? ' (kamu)' : ''}</span>
         <span class="b-status">${x.belum ? T.esc(BY[x.belum].singkat) : 'Sudah ' + T.esc(D.settings.emojiSudah)}</span></li>`).join('')}</ul>` : '';
-    return `<section class="card">
-      <button class="card-head toggle" data-act="board" aria-expanded="${SHOW_BOARD}">
-        <h3>Teman-teman</h3><span class="muted small">${D._stale ? 'memperbarui…' : `${n}/${b.length} sudah ${T.esc(BY[cur].singkat)}`}</span>
-        <span class="chev" aria-hidden="true">${SHOW_BOARD ? '▴' : '▾'}</span></button>${list}</section>`;
+    return `<section class="card board-card">
+      <button class="board-sum" data-act="board" aria-expanded="${SHOW_BOARD}">
+        <span class="faces">${faces}</span>
+        <span class="board-txt">${D._stale ? 'Memperbarui…' : `<b>${n} dari ${b.length}</b> sudah baca sampai hari ini`}</span>
+        ${SVG.chev}</button>${list}</section>`;
   }
 
+  /* --- 6. saran pasang di layar utama --- */
   function installCard() {
     const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
     if (standalone || T.store.get('tbf_tip_off')) return '';
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
-    return `<section class="card tip">
-      <div class="tip-icon" aria-hidden="true">📲</div>
-      <div><h3>Simpan di layar utama</h3>
-        <p class="small muted">${ios
-          ? 'Di Safari, tekan tombol <b>Bagikan</b> ⬆️ lalu pilih <b>Tambah ke Layar Utama</b>.'
-          : 'Di Chrome, tekan menu <b>⋮</b> lalu pilih <b>Tambahkan ke layar utama</b>.'} Besok tinggal buka seperti aplikasi.</p>
-        <button class="link-btn" data-act="tip-off">Oke, mengerti</button></div>
+    return `<section class="tip-bar">
+      <div class="tip-row">${SVG.phone}
+        <span class="tip-txt">Pasang di layar utama HP. <button class="text-btn inline" data-act="tip-how" aria-expanded="${SHOW_TIP}">Caranya</button></span>
+        <button class="tip-x" data-act="tip-off" aria-label="Tutup saran">${SVG.x}</button></div>
+      ${SHOW_TIP ? `<p class="tip-how">${ios
+        ? 'Di Safari, tekan tombol <b>Bagikan</b> lalu pilih <b>Tambah ke Layar Utama</b>.'
+        : 'Di Chrome, tekan menu <b>⋮</b> lalu pilih <b>Tambahkan ke layar utama</b>.'} Besok tinggal buka seperti aplikasi.</p>` : ''}
     </section>`;
   }
 
@@ -507,22 +575,20 @@
 
   function rnCard(cur) {
     const rec = D.renungan && D.renungan.hari === cur ? D.renungan : null;
-    const head = (sub) => `<div class="rn-card-top"><span class="rn-ico" aria-hidden="true">📖</span>
-      <div><p class="eyebrow">Renungan hari ini</p>${sub}</div></div>`;
+    const head = `<p class="rn-lbl">${SVG.book}Renungan hari ini</p>`;
     if (rec) {
       const pv = T.rn.preview(rec.teks, 150);
       return `<section class="card rn-card" data-act="rn-open" data-h="${cur}" role="button" tabindex="0" aria-label="Baca renungan hari ini">
-        ${head(`<h3>${T.esc(BY[cur].bacaan)}</h3>`)}
-        ${pv ? `<p class="rn-prev">${T.esc(pv)}</p>` : ''}
-        <span class="rn-more">Baca renungan <span aria-hidden="true">›</span></span></section>`;
+        ${head}${pv ? `<p class="rn-prev">${T.esc(pv)}</p>` : ''}
+        <span class="rn-more">Baca renungan ${SVG.right}</span></section>`;
     }
     if (D._stale && !D._rnFail) {
-      return `<section class="card rn-card">${head('<p class="muted small rn-wait">Memuat renungan…</p>')}
+      return `<section class="card rn-card">${head}<p class="card-sub rn-wait">Memuat renungan…</p>
         <div class="sk-line"></div><div class="sk-line short"></div></section>`;
     }
     const prevH = rnDays().filter(h => h < cur).pop();
-    return `<section class="card rn-card rn-empty">${head('<p class="muted small">Renungan hari ini belum tersedia.</p>')}
-      ${prevH ? `<button class="link-btn" data-act="rn-open" data-h="${prevH}">Baca renungan ${prevH === cur - 1 ? 'kemarin' : 'sebelumnya'} ›</button>` : ''}</section>`;
+    return `<section class="card rn-card rn-empty">${head}<p class="card-sub">Renungan hari ini belum tersedia.</p>
+      ${prevH ? `<button class="text-btn" data-act="rn-open" data-h="${prevH}">Baca renungan ${prevH === cur - 1 ? 'kemarin' : 'sebelumnya'} ›</button>` : ''}</section>`;
   }
 
   /* ---- layar baca (layar penuh) ---- */
@@ -636,29 +702,30 @@
     for (let d = cur; d >= Math.max(1, cur - WA_DAYS + 1); d--) days.push(d);
     const isDefault = WA_SEL.size === 1 && WA_SEL.has(cur);
     const more = WA_MORE ? `<div class="wa-more">
-        <p class="small muted">Ketuk bacaan yang mau dikirim. Bacaan yang berurutan otomatis digabung.</p>
-        <div class="wa-chips" role="group" aria-label="Pilih bacaan">${days.map(d => {
+        <p class="card-sub">Centang bacaan yang mau dikirim. Bacaan yang berurutan otomatis digabung.</p>
+        <ul class="late-list">${days.map(d => {
           const on = WA_SEL.has(d); const done = DONE.has(d);
-          return `<button class="wa-chip ${on ? 'on' : ''}" data-wa="${d}" aria-pressed="${on}">
-            <b>${T.esc(BY[d].bacaan)}</b>
-            <small>${d === cur ? 'Terbaru' : T.fmtTanggal(BY[d].tanggal, { short: true })} · <span class="${done ? 'st-ok' : 'st-no'}">${done ? '✓ sudah' : 'belum ditandai'}</span></small></button>`;
-        }).join('')}</div>
+          return `<li><button class="late-row ${on ? 'on' : ''}" data-wa="${d}" aria-pressed="${on}">
+            <span class="box" aria-hidden="true">${SVG.check(16, 3)}</span>
+            <span class="lr-main">${dash(BY[d].bacaan)}<small class="${done ? 'st-ok' : 'st-no'}">${d === cur ? 'Hari ini, ' : T.fmtTanggal(BY[d].tanggal, { short: true }) + ', '}${done ? 'sudah ditandai' : 'belum ditandai'}</small></span>
+          </button></li>`;
+        }).join('')}</ul>
         <div class="wa-opts">
-          <span class="small muted">Tanda:</span>
+          <span class="card-sub">Tanda:</span>
           <div class="seg seg-mini" role="group" aria-label="Tanda">${WA_MARKS.map(m =>
             `<button class="seg-btn ${waMark() === m ? 'on' : ''}" data-mark="${m}" aria-pressed="${waMark() === m}">${m}</button>`).join('')}</div>
-          ${isDefault ? '' : '<button class="link-btn" data-act="wa-reset">Hanya hari ini</button>'}
+          ${isDefault ? '' : '<button class="text-btn" data-act="wa-reset">Hanya hari ini</button>'}
         </div>
       </div>` : '';
-    return `<section class="card wa-card" id="wa-card">
-      <div class="card-head"><h3>Kirim ke grup WA</h3>
-        <button class="chip-btn" data-act="wa-more" aria-expanded="${WA_MORE}">${WA_MORE ? 'Tutup ▴' : 'Pilih lain ▾'}</button></div>
-      <pre class="wa-preview" id="wa-preview" aria-label="Pesan yang akan dikirim"></pre>
+    return `<section class="card wa-card" id="wa-card" aria-labelledby="h-wa">
+      <div class="card-top"><h3 class="card-title" id="h-wa">Kirim ke grup WA</h3>
+        <button class="chip-btn" data-act="wa-more" aria-expanded="${WA_MORE}">${WA_MORE ? 'Tutup' : 'Pilih lain'} ${SVG.chev}</button></div>
       ${more}
-      <p class="small wa-warn" id="wa-warn" hidden></p>
+      <div class="wa-bubble-wrap"><pre class="wa-preview" id="wa-preview" aria-label="Pesan yang akan dikirim"></pre></div>
+      <p class="wa-warn" id="wa-warn" hidden></p>
       <div class="row-btns">
         <button class="btn-secondary" data-act="wa-copy">Salin</button>
-        <a class="btn-wa" id="wa-send" href="#" target="${T.waTarget}" rel="noopener" data-act="wa-send">Kirim ke WA</a>
+        <a class="btn-primary" id="wa-send" href="#" target="${T.waTarget}" rel="noopener" data-act="wa-send">Kirim ke WA</a>
       </div>
     </section>`;
   }
@@ -714,23 +781,18 @@
     send.setAttribute('aria-disabled', String(!text));
     const notYet = Array.from(WA_SEL).filter(d => !DONE.has(d));
     const warn = document.getElementById('wa-warn');
-    warn.hidden = !notYet.length;
-    if (notYet.length) {
-      warn.innerHTML = `${notYet.length === 1 ? 'Belum' : notYet.length + ' bacaan belum'} ditandai di aplikasi ·
-        <button class="link-btn" data-act="wa-mark">Tandai sudah</button>`;
-    }
+    warn.hidden = !text;
+    warn.classList.toggle('ok', !notYet.length);
+    warn.innerHTML = notYet.length
+      ? `${notYet.length === 1 ? 'Belum' : notYet.length + ' bacaan belum'} ditandai di aplikasi. <button class="text-btn inline warn" data-act="wa-mark">Tandai sudah</button>`
+      : `${SVG.check(18)}Sudah ditandai di aplikasi`;
   }
 
   /* ============ bilah aksi bawah (saat ada yang dicentang) ============ */
   function renderBar() {
-    const n = PICK.size;
-    $bar.classList.toggle('show', n > 0);
-    document.body.classList.toggle('has-bar', n > 0);
-    if (n) {
-      $bar.innerHTML = `<div class="wrap actionbar-in">
-        <button class="btn-ghost" data-act="clear-pick">Batal</button>
-        <button class="btn-primary" data-act="mark-picked">Laporkan ${n} bacaan</button></div>`;
-    }
+    // v6.2: tombol "Laporkan" ada di dalam kartu Tertinggal, bilah bawah tidak dipakai lagi
+    $bar.classList.remove('show');
+    document.body.classList.remove('has-bar');
   }
 
   function updateBoardSelf() {
@@ -793,7 +855,7 @@
     const a = e.target.closest('[data-act]');
     if (!a) return;
     switch (a.dataset.act) {
-      case 'mark': return lapor([+a.dataset.day], true);
+      case 'mark': MARKED_AT = Date.now(); MARKED_DAY = +a.dataset.day; return lapor([+a.dataset.day], true);
       case 'undo': return lapor([+a.dataset.day], false);
       case 'mark-picked': return lapor(Array.from(PICK).sort((x, y) => x - y), true);
       case 'clear-pick': PICK.clear(); return render();
@@ -805,6 +867,7 @@
       case 'show-all-late': SHOW_ALL_LATE = true; return render();
       case 'board': SHOW_BOARD = !SHOW_BOARD; return render();
       case 'tip-off': T.store.set('tbf_tip_off', '1'); return render();
+      case 'tip-how': SHOW_TIP = !SHOW_TIP; return render();
       case 'reload': return boot();
       case 'rn-open': return rnOpen(+a.dataset.h);
       case 'go-wa': { const c = document.getElementById('wa-card'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }

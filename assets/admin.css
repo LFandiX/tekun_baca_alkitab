@@ -12,7 +12,7 @@ body.admin {
   --shadow: 0 1px 2px rgba(28, 36, 32, .04);
 }
 @media (prefers-color-scheme: dark) {
-  body.admin {
+  html:not([data-theme="light"]) body.admin {
     --bg: #121815; --surface: #1a221e; --surface-2: #212a25; --line: #2d3832; --muted: #a3aba4;
     --primary-soft: #22362e; --ok: #7dbaa1; --ok-soft: #22362e;
     --warn: #e6a86f; --warn-soft: #3a2b1d; --danger: #ec9284; --danger-soft: #3e2320;
@@ -20,6 +20,13 @@ body.admin {
     --book: #2d3832; --book-nt: #34433b; --bubble: #0f1512; --shadow: none;
   }
 }
+html[data-theme="dark"] body.admin {
+    --bg: #121815; --surface: #1a221e; --surface-2: #212a25; --line: #2d3832; --muted: #a3aba4;
+    --primary-soft: #22362e; --ok: #7dbaa1; --ok-soft: #22362e;
+    --warn: #e6a86f; --warn-soft: #3a2b1d; --danger: #ec9284; --danger-soft: #3e2320;
+    --deep: #0f1d18; --deep-2: #1a2e27; --deep-ink: #b7cdc3; --pita: #e07a86;
+    --book: #2d3832; --book-nt: #34433b; --bubble: #0f1512; --shadow: none;
+  }
 body.admin { font-feature-settings: "tnum" 1; }
 .admin .card { border-radius: 16px; box-shadow: var(--shadow); }
 .admin .tag { text-transform: none; letter-spacing: 0; font-size: 12px; }
@@ -75,7 +82,10 @@ body.admin { font-feature-settings: "tnum" 1; }
 .wk i { display: block; width: 7px; height: 16px; border-radius: 2px; border: 1.5px solid #c4c8be; box-sizing: border-box; }
 .wk i.on { background: var(--primary); border-color: var(--primary); }
 .wk i.na { border-style: dotted; opacity: .5; }
-@media (prefers-color-scheme: dark) { .wk i { border-color: #4a564f; } }
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) .wk i { border-color: #4a564f; }
+}
+html[data-theme="dark"] .wk i { border-color: #4a564f; }
 .rrow .tick-btn { flex: none; width: 44px; height: 44px; border-radius: 50%; }
 .rrow .tick-btn.on { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 .roster-empty { padding: 26px 16px; text-align: center; color: var(--muted); border-top: 1px solid var(--line); margin: 0; }
@@ -115,7 +125,10 @@ body.has-rbar .toast.lift { bottom: calc(150px + var(--safe-b)); }
 .admin .bottomnav { box-shadow: none; }
 .admin .nav-btn { font-size: 12px; }
 .admin .nav-btn.on { color: var(--deep); }
-@media (prefers-color-scheme: dark) { .admin .nav-btn.on { color: var(--primary); } }
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) .admin .nav-btn.on { color: var(--primary); }
+}
+html[data-theme="dark"] .admin .nav-btn.on { color: var(--primary); }
 
 /* ---------- PENGATURAN ---------- */
 .atur-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
@@ -202,7 +215,10 @@ body.has-rbar .toast.lift { bottom: calc(150px + var(--safe-b)); }
   .side-link.on { background: var(--bg); color: var(--deep); font-weight: 700; }
   .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 2px; border-top: 1px solid var(--deep-2); padding-top: 12px; }
   .side-toggle svg { transition: transform .18s ease; }
-  @media (prefers-color-scheme: dark) { .side-link.on { background: var(--primary-soft); color: #fff; } }
+  @media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) .side-link.on { background: var(--primary-soft); color: #fff; }
+}
+html[data-theme="dark"] .side-link.on { background: var(--primary-soft); color: #fff; }
 
   html.side-mini .side { flex-basis: 76px; width: 76px; }
   html.side-mini body.admin .toast { left: calc(50% + 38px); }
@@ -305,3 +321,10 @@ body.has-rbar .toast.lift { bottom: calc(150px + var(--safe-b)); }
 @media (min-width: 720px) { .rn-g-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; } }
 .admin textarea:focus-visible, .admin input:focus-visible { outline-color: var(--primary); }
 @media (min-width: 1024px) { .rn-tools { flex-wrap: wrap; overflow: visible; } }
+
+/* tombol tema: di HP ada di bilah atas, di laptop di menu samping */
+.side [data-act="theme"] { display: none; }
+@media (min-width: 1024px) {
+  .side [data-act="theme"] { display: flex; }
+  .admin .topbar .theme-btn { display: none; }
+}

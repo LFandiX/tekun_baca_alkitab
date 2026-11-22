@@ -100,6 +100,28 @@ Google Sheets            (sheet: Pengaturan, Anggota, Jadwal, Laporan)
 
 ---
 
+## Update ke versi 6.2 (tampilan halaman anggota baru)
+
+Hanya file website. Apps Script **tidak perlu** diubah (tetap versi 3.4).
+
+- Bilah atas: "Shalom, Nama" + nama kelompok.
+- Kartu hijau gaya lama dengan **pita merah**. Saat menekan **Sudah saya baca**, pita turun seperti pembatas
+  yang diselipkan ke halaman, lalu muncul centang (HP yang mematikan animasi: langsung berubah tanpa gerak).
+- **Tertinggal**: satu kolom, selalu terbuka, tombol **Laporkan** di dalam kartu.
+- **Perjalananmu**: cincin per kitab (hijau sudah dibaca, oranye tertinggal); kitab yang selesai diringkas satu baris.
+- Teman-teman, saran pasang di layar utama, dan **Kirim ke grup WA** (tetap paling bawah) dirapikan.
+- Huruf lebih besar (minimal 15 px) supaya nyaman untuk orang tua. Mode gelap ikut disesuaikan.
+- **Tombol terang/gelap** (ikon matahari/bulan) di kanan atas halaman anggota, dan di halaman admin
+  (HP: bilah atas, laptop: menu samping). Pilihan disimpan di HP masing-masing; sebelum ditekan,
+  tampilan mengikuti pengaturan HP.
+
+Catatan untuk yang mengubah CSS: blok mode gelap ditulis dua kali, yaitu
+`@media (prefers-color-scheme: dark) { html:not([data-theme="light"]) … }` dan `html[data-theme="dark"] …`.
+Skrip `tools/tema.py` bisa membuatnya otomatis dari blok `@media` biasa.
+
+File 6.2 (paket lengkap, aman disalin semua): `index.html`, `admin.html`, `assets/app.js`, `assets/admin.js`,
+`assets/admin.css`, `assets/anggota.css` (baru), `assets/common.js`, `assets/style.css`, `apps-script/Code.gs`.
+
 ## Update ke versi 6.1 (tampilan admin baru + desain renungan)
 
 - Checklist dan Rekap digabung jadi tab **Hari ini**. Di laptop, daftar anggota ada di kiri dan teks rekap WA di kanan; di HP, tombol **Kirim rekap** selalu ada di bawah.
