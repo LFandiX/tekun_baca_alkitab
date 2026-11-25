@@ -136,6 +136,7 @@
     if (!SEL || SEL > D.currentDay) SEL = D.currentDay;
     $tools.hidden = false;
     renderAll();
+    if (WKM && WK) wkRefresh();          // jendela rangkuman ikut memakai data terbaru
     if (MODAL && keepModal && P[keepModal]) MODAL.setHtml(personHtml(keepModal));
     if (store2) saveCache();
   }
@@ -464,6 +465,7 @@
           <label class="rn-jump-date"><span>Lompat ke</span>
             <input type="date" id="rn-date" value="${s.tanggal}" min="${D.schedule[0].tanggal}" max="${D.schedule[D.schedule.length - 1].tanggal}"></label>
           <button class="chip-btn" data-act="rn-nextempty">Hari kosong berikutnya ›</button>
+          <button class="chip-btn" data-act="wk-open"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6"/></svg>Rangkuman mingguan</button>
         </div>
       </div>
       <div class="rn-chips" id="rn-chips" role="group" aria-label="Pilih hari">${chips}</div>
@@ -547,6 +549,107 @@
           <div><p class="rn-g-note">${T.esc(note)}</p><pre class="rn-g-src">${T.esc(src)}</pre></div>
           <div class="rn rn-g-out">${T.rn.format(src)}</div></div>`).join('')}</div>
       <p class="muted small">Untuk dikirim ke grup WA, pakai <b>Salin versi WhatsApp</b> di bawah kotak teks: simbolnya diganti tanda yang rapi di WhatsApp (1️⃣ 📖 📌 ☑️).</p>`;
+  }
+
+  /* ============ RANGKUMAN MINGGUAN: gabungkan renungan beberapa hari → PDF / teks WA ============ */
+  let WK = null, WKM = null;
+  const initials = t => String(t || '').split(/\s+/).filter(Boolean).map(w => w[0].toUpperCase()).join('');
+  function wkRange(kind) {
+    const ref = BY[Math.min(D.currentDay || 1, rnMaxDay())] || D.schedule[0];
+    if (kind === '7') return { from: Math.max(1, ref.hari - 6), to: ref.hari };   // 7 bacaan terakhir s/d hari ini
+    // minggu kalender (Senin–Minggu) dari hari acuan; "lalu" = minggu sebelumnya
+    const p = ref.tanggal.split('-').map(Number); const d = new Date(Date.UTC(p[0], p[1] - 1, p[2]));
+    const mon = new Date(d); mon.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) - (kind === 'lalu' ? 7 : 0));
+    const sun = new Date(mon); sun.setUTCDate(mon.getUTCDate() + 6);
+    const a = mon.toISOString().slice(0, 10), z = sun.toISOString().slice(0, 10);
+    const days = D.schedule.filter(x => x.tanggal >= a && x.tanggal <= z).map(x => x.hari);
+    return days.length ? { from: days[0], to: days[days.length - 1] } : { from: ref.hari, to: ref.hari };
+  }
+  function wkAutoTitle() {
+    const f = BY[WK.from], l = BY[WK.to];
+    const pf = f && String(f.bacaan).split(/\s*&\s*/)[0].match(/^(.*\S)\s+(\d+)/);
+    const pl = l && String(l.bacaan).split(/\s*&\s*/).pop().match(/^(.*\S)\s+(\d+)(?:\s*[-–]\s*(\d+))?$/);
+    let r = '';
+    if (pf && pl) r = pf[1] === pl[1] ? `${pf[1]} ${pf[2]}-${pl[3] || pl[2]}` : `${pf[1]} ${pf[2]} - ${pl[1]} ${pl[3] || pl[2]}`;
+    return ('Guidelines ' + r + ' ' + initials(D.settings.namaKelompok)).replace(/\s+/g, ' ').trim();
+  }
+  function wkDays() { const out = []; for (let h = WK.from; h <= WK.to; h++) if (BY[h]) out.push(h); return out; }
+  function wkHtml() {
+    const mm = rnMetaMap(); const days = wkDays(); const ada = days.filter(h => mm[h]);
+    const opt = sel => D.schedule.map(x => `<option value="${x.hari}" ${x.hari === sel ? 'selected' : ''}>${T.fmtTanggal(x.tanggal, { short: true })}: ${T.esc(x.bacaan)}</option>`).join('');
+    return `<header class="modal-head"><div><h2>Rangkuman mingguan</h2>
+        <p class="muted small nomb">Gabungkan renungan beberapa hari jadi satu PDF atau satu teks WA.</p></div>
+        <button class="icon-btn" data-close aria-label="Tutup">×</button></header>
+      <div class="seg wk-seg" role="group" aria-label="Pilih minggu">
+        <button class="seg-btn ${WK.preset === '7' ? 'on' : ''}" data-act="wk-preset" data-p="7">7 hari terakhir</button>
+        <button class="seg-btn ${WK.preset === 'ini' ? 'on' : ''}" data-act="wk-preset" data-p="ini">Minggu ini</button>
+        <button class="seg-btn ${WK.preset === 'lalu' ? 'on' : ''}" data-act="wk-preset" data-p="lalu">Minggu lalu</button></div>
+      <div class="wk-range">
+        <label><span>Dari</span><select class="input" id="wk-from">${opt(WK.from)}</select></label>
+        <label><span>Sampai</span><select class="input" id="wk-to">${opt(WK.to)}</select></label>
+      </div>
+      <ul class="wk-list">${days.map(h => `<li class="${mm[h] ? 'ok' : 'no'}"><span>${T.fmtTanggal(BY[h].tanggal, { short: true })}</span>
+        <b>${T.esc(BY[h].bacaan)}</b><em>${mm[h] ? '✓ ada' : 'dilewati'}</em></li>`).join('')}</ul>
+      <label class="wk-title"><span>Judul</span><input class="input" id="wk-title" value="${T.esc(WK.title)}" autocomplete="off"></label>
+      <label class="wk-check"><input type="checkbox" id="wk-page" ${WK.newPage ? 'checked' : ''}> Setiap hari mulai di halaman baru</label>
+      <p class="muted small wk-sum">${ada.length} dari ${days.length} hari ada renungannya${ada.length < days.length ? '; hari yang belum ada dilewati' : ''}.${WK.err ? ` <b class="danger">${T.esc(WK.err)}</b>` : ''}</p>
+      <div class="rbox-btns">
+        <button class="btn-secondary" data-act="wk-copy" ${ada.length && !WK.busy ? '' : 'disabled'}>Salin teks</button>
+        <button class="btn-primary" data-act="wk-pdf" ${ada.length && !WK.busy ? '' : 'disabled'}>${WK.busy ? 'Menyiapkan…' : 'Buat PDF'}</button>
+      </div>
+      <p class="muted small nomb">Di HP: setelah layar cetak muncul, pilih <b>Simpan sebagai PDF</b>, lalu kirim filenya ke grup.</p>`;
+  }
+  function wkOpen() {
+    WK = Object.assign({ preset: '7', newPage: false, busy: false, err: '' }, wkRange('7'));
+    WK.title = wkAutoTitle(); WK.titleEdited = false;
+    WKM = T.openModal(wkHtml(), { onClose: () => { WKM = null; } });
+  }
+  function wkRefresh() { if (!WK.titleEdited) WK.title = wkAutoTitle(); if (WKM) WKM.setHtml(wkHtml()); }
+  /** ambil teks renungan yang belum ada di HP (bersamaan) */
+  async function wkTexts() {
+    const mm = rnMetaMap(); const need = wkDays().filter(h => mm[h] && !(h in RN_TEXT));
+    const res = await Promise.allSettled(need.map(h => T.apiPost({ action: 'rnGet', pin: PIN, hari: h })
+      .then(r => { RN_TEXT[h] = r.item ? r.item.teks : ''; })));
+    const bad = res.filter(r => r.status === 'rejected').length;
+    if (bad) throw new Error(`${bad} renungan gagal dimuat. Coba lagi.`);
+    return wkDays().filter(h => (RN_TEXT[h] || '').trim());
+  }
+  async function wkRun(kind) {
+    if (!WK || WK.busy) return;
+    WK.busy = true; WK.err = ''; wkRefresh();
+    let days = [];
+    try { days = await wkTexts(); } catch (e) { WK.err = loginError(e) || e.message; }
+    WK.busy = false; wkRefresh();
+    if (!days.length) return;
+    if (kind === 'copy') {
+      const txt = `*${WK.title}*\n\n` + days.map(h => T.rn.toWa(RN_TEXT[h]).trim()).join('\n\n━━━━━━━━━━\n\n');
+      return T.toast((await T.copyText(txt)) ? `Teks ${days.length} renungan disalin` : 'Gagal menyalin');
+    }
+    wkPrint(days);
+  }
+  function wkPrint(days) {
+    let root = document.getElementById('print-root');
+    if (!root) { root = document.createElement('div'); root.id = 'print-root'; document.body.appendChild(root); }
+    const t = WK.title;
+    root.innerHTML = `<h1 class="pr-title">${T.esc(t)}</h1>` + days.map(h => `
+      <section class="pr-day ${WK.newPage ? 'pr-newpage' : ''}">
+        <p class="pr-date">${fmtLong(BY[h].tanggal)}</p>
+        <p class="pr-guide">Guidelines: ${T.esc(BY[h].bacaan).replace(/(\d)-(\d)/g, '$1–$2')}</p>
+        <div class="rn pr-body">${T.rn.format(RN_TEXT[h])}</div>
+      </section>`).join('');
+    // judul & nomor halaman di kaki setiap halaman (Chrome 131+)
+    let st = document.getElementById('print-page');
+    if (!st) { st = document.createElement('style'); st.id = 'print-page'; document.head.appendChild(st); }
+    const q = JSON.stringify(t);
+    st.textContent = `@page { size: A4; margin: 18mm 18mm 20mm;
+      @bottom-left { content: ${q}; font: 9pt "Plus Jakarta Sans", sans-serif; color: #8a918b; }
+      @bottom-right { content: counter(page); font: 9pt "Plus Jakarta Sans", sans-serif; color: #8a918b; } }`;
+    const oldTitle = document.title;
+    const done = () => { document.title = oldTitle; document.body.classList.remove('printing'); window.removeEventListener('afterprint', done); };
+    document.title = t;                      // nama file PDF mengikuti judul
+    document.body.classList.add('printing');
+    window.addEventListener('afterprint', done);
+    setTimeout(() => window.print(), 60);
   }
 
   function bindRenungan() {
@@ -897,6 +1000,10 @@
         return rnSelect(nx.hari);
       }
       case 'rn-move': return rnMove(+el.dataset.h);
+      case 'wk-open': return wkOpen();
+      case 'wk-preset': WK.preset = el.dataset.p; Object.assign(WK, wkRange(el.dataset.p)); return wkRefresh();
+      case 'wk-pdf': return wkRun('pdf');
+      case 'wk-copy': return wkRun('copy');
       case 'rn-guide': T.openModal(rnGuideHtml()); return;
       case 'rn-copywa': {
         const ta = document.getElementById('rn-text'); if (!ta || !ta.value.trim()) return T.toast('Belum ada teks');
@@ -927,6 +1034,7 @@
   document.addEventListener('input', e => {
     const t = e.target;
     if (t.id === 'rn-text') { RN_DRAFT[RSEL] = t.value; syncRn(); }
+    else if (t.id === 'wk-title' && WK) { WK.title = t.value; WK.titleEdited = true; }
     else if (t.id === 'recap' || t.id === 'recap-s') {
       RECAP_EDIT = t.value === autoRecap() ? null : { hari: SEL, text: t.value };
       syncWaLinks();
@@ -938,6 +1046,14 @@
     else if (t.dataset && t.dataset.ef) { EMO[t.dataset.ef] = t.value; syncEmoUI(true); }
   });
   document.addEventListener('change', e => {
+    const id = e.target.id;
+    if (WK && (id === 'wk-from' || id === 'wk-to')) {
+      const v = +e.target.value; WK.preset = '';
+      if (id === 'wk-from') { WK.from = v; if (WK.to < v) WK.to = v; } else { WK.to = v; if (WK.from > v) WK.from = v; }
+      if (WK.to - WK.from > 30) { if (id === 'wk-from') WK.to = WK.from + 30; else WK.from = WK.to - 30; }   // maks. 31 hari sekali cetak
+      return wkRefresh();
+    }
+    if (WK && id === 'wk-page') { WK.newPage = e.target.checked; return; }
     if (e.target.id === 'rn-date' && e.target.value) {
       const d = D.schedule.find(x => x.tanggal >= e.target.value);   // hari libur → bacaan berikutnya
       if (d) rnSelect(d.hari);

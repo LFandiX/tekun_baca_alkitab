@@ -1,11 +1,11 @@
-UPDATE v6.2: tampilan halaman anggota baru + animasi halus + tombol mode terang/gelap
+UPDATE v6.3: rangkuman renungan mingguan (PDF / teks WA) di halaman admin
 
-Paket ini lengkap (berisi juga perubahan 6.1), jadi aman disalin semua.
+Paket ini lengkap (berisi juga perubahan 6.1 dan 6.2), jadi aman disalin semua.
 Apps Script TIDAK perlu diubah. JANGAN menimpa config.js (tidak ada di paket ini).
 
 File:
   index.html, admin.html, README.md
-  assets/app.js, assets/admin.js, assets/admin.css, assets/anggota.css (BARU),
+  assets/app.js, assets/admin.js, assets/admin.css, assets/anggota.css,
   assets/common.js, assets/style.css
   apps-script/Code.gs (sama dengan versi 3.4, hanya arsip)
   tools/tema.py (alat bantu untuk pengembang, tidak dipakai website)

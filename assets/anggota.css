@@ -262,3 +262,7 @@ body.anggota { --ease-out: cubic-bezier(.2, .8, .2, 1); --ease-spring: cubic-bez
 html.theme-anim body, html.theme-anim body * { transition: background-color .35s ease, color .35s ease, border-color .35s ease !important; }
 .theme-btn.spin svg { animation: putar .5s var(--ease-out); }
 @keyframes putar { from { transform: rotate(-90deg) scale(.6); opacity: 0; } }
+
+/* sembunyikan scrollbar (halaman tetap bisa digulir) */
+html { scrollbar-width: none; }
+html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }

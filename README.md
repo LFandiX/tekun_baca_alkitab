@@ -100,6 +100,20 @@ Google Sheets            (sheet: Pengaturan, Anggota, Jadwal, Laporan)
 
 ---
 
+## Update ke versi 6.3 (rangkuman renungan mingguan)
+
+Hanya file website. Apps Script **tidak perlu** diubah (tetap versi 3.4).
+
+- Halaman admin → **Renungan** → tombol **Rangkuman mingguan**.
+- Pilih rentang: **7 hari terakhir** (bawaan), **Minggu ini**, **Minggu lalu**, atau atur sendiri **Dari / Sampai**
+  (maks. 31 hari sekali cetak). Hari yang belum ada renungannya otomatis dilewati.
+- Judul dibuat otomatis, mis. **Guidelines Kejadian 37-50 TBF** (singkatan dari nama kelompok), dan bisa diubah.
+- **Buat PDF**: membuka layar cetak. Pilih **Simpan sebagai PDF**; nama file mengikuti judul.
+  Isi: judul, lalu per hari tanggal + Guidelines + renungan (kotak Renungan/Pokok Doa ikut rapi),
+  judul & nomor halaman di kaki halaman. Opsi "Setiap hari mulai di halaman baru".
+- **Salin teks**: semua renungan dalam satu teks WA, dipisah garis, simbol desain diubah jadi tanda WA.
+- Juga di versi ini: scrollbar di halaman anggota disembunyikan.
+
 ## Update ke versi 6.2 (tampilan halaman anggota baru)
 
 Hanya file website. Apps Script **tidak perlu** diubah (tetap versi 3.4).
